@@ -147,16 +147,23 @@ export async function createUser(data: {
   password: string;
   profile_url?: string;
 }): Promise<User> {
-  const res = await fetch(`${BASE_URL}/users/create${getAuth()}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/users/create${getAuth()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    throw new Error("Tidak bisa terhubung ke server. Pastikan endpoint /users/create sudah di-deploy di worker.");
+  }
   if (!res.ok) {
     const msg = await res.text().catch(() => "Gagal membuat user");
     throw new Error(msg);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text) return { id: "", username: data.username, status: "active" } as User;
+  return JSON.parse(text);
 }
 
 export async function updateUser(data: {
