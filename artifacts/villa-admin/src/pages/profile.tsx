@@ -434,6 +434,52 @@ export default function ProfilePage() {
   if (superAdmin) {
     return (
       <div className="space-y-5">
+
+        {/* Super Admin Profile Card */}
+        <Card className="bg-amber-500/5 border-amber-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-shrink-0">
+                <label className="cursor-pointer group">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-xl font-bold overflow-hidden">
+                    {editPhotoLoading
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : currentUser?.profile_url
+                        ? <img src={currentUser.profile_url} alt={adminName} className="w-full h-full object-cover" />
+                        : initials(adminName)
+                    }
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ImagePlus className="w-3 h-3 text-white" />
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                </label>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <p className="text-white font-semibold capitalize truncate">{adminName}</p>
+                </div>
+                <p className="text-amber-400/70 text-xs">Super Admin</p>
+                {currentUser?.created_at && (
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Bergabung {new Date(currentUser.created_at).toLocaleDateString("id-ID", { year: "numeric", month: "long" })}
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={openEdit}
+                className="text-amber-400/70 hover:text-amber-300 hover:bg-amber-400/10 h-8 px-2.5 flex-shrink-0"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                Edit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-amber-400" />
@@ -696,6 +742,78 @@ export default function ProfilePage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Edit Profil Super Admin */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                Edit Profil Super Admin
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-5">
+              {/* Photo */}
+              <div className="flex flex-col items-center gap-3">
+                <label className="cursor-pointer group relative">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-xl font-bold overflow-hidden">
+                    {editPhotoLoading
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : currentUser?.profile_url
+                        ? <img src={currentUser.profile_url} alt={adminName} className="w-full h-full object-cover" />
+                        : initials(adminName)
+                    }
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ImagePlus className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={editPhotoLoading} />
+                </label>
+                <p className="text-slate-400 text-xs">Klik foto untuk mengganti</p>
+              </div>
+              {/* Form */}
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-300">Username</Label>
+                  <Input
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
+                    placeholder="Username"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300">
+                    Password Baru <span className="text-slate-500">(kosongkan jika tidak diubah)</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={editShowPwd ? "text" : "password"}
+                      value={editPwd}
+                      onChange={(e) => setEditPwd(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 pr-10"
+                      placeholder="Password baru"
+                    />
+                    <button type="button" onClick={() => setEditShowPwd(!editShowPwd)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                      {editShowPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setEditOpen(false)}
+                    className="text-slate-400 hover:text-white">Batal</Button>
+                  <Button type="submit" disabled={editLoading || !editUsername.trim()}
+                    className="bg-amber-600 hover:bg-amber-500 text-white">
+                    {editLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simpan"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
     );
   }
