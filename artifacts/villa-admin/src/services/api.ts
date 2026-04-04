@@ -142,6 +142,23 @@ export async function getAllUsers(): Promise<User[]> {
   return res.json();
 }
 
+export async function createUser(data: {
+  username: string;
+  password: string;
+  profile_url?: string;
+}): Promise<User> {
+  const res = await fetch(`${BASE_URL}/users/create${getAuth()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "Gagal membuat user");
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 export async function updateUser(data: {
   id: string;
   username?: string;

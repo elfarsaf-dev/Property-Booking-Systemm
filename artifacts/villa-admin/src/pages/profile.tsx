@@ -7,6 +7,7 @@ import {
   getCurrentUser,
   updateCurrentUser,
   getAllUsers,
+  createUser,
   updateUser,
   uploadImage,
   type Reservation,
@@ -29,7 +30,7 @@ import {
 import {
   CalendarCheck, TrendingUp, Wallet, XCircle, Loader2,
   ShieldCheck, Pencil, Lock, Ban, CheckCircle, RefreshCw,
-  ImagePlus, Users, Eye, EyeOff,
+  ImagePlus, Users, Eye, EyeOff, UserPlus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -195,6 +196,13 @@ export default function ProfilePage() {
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [banLoading, setBanLoading] = useState(false);
 
+  /* ── Create user (superadmin) ── */
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createUsername, setCreateUsername] = useState("");
+  const [createPwd, setCreatePwd] = useState("");
+  const [createShowPwd, setCreateShowPwd] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+
   /* ── Edit user (superadmin) ── */
   const [editUserTarget, setEditUserTarget] = useState<User | null>(null);
   const [editUserUsername, setEditUserUsername] = useState("");
@@ -315,6 +323,25 @@ export default function ProfilePage() {
     }
   }
 
+  /* ─── Superadmin: create user ─── */
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!createUsername.trim() || !createPwd.trim()) return;
+    setCreateLoading(true);
+    try {
+      const newUser = await createUser({ username: createUsername.trim(), password: createPwd.trim() });
+      setAllUsers((prev) => [...prev, newUser]);
+      toast({ title: "User dibuat", description: `User "${newUser.username}" berhasil ditambahkan` });
+      setCreateOpen(false);
+      setCreateUsername("");
+      setCreatePwd("");
+    } catch (err: any) {
+      toast({ title: "Gagal membuat user", description: err.message || "Terjadi kesalahan", variant: "destructive" });
+    } finally {
+      setCreateLoading(false);
+    }
+  }
+
   /* ─── Superadmin: edit user profile ─── */
   function openEditUser(user: User) {
     setEditUserTarget(user);
@@ -385,15 +412,25 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={refreshUsers}
-            disabled={loadingUsers}
-            className="text-slate-400 hover:text-white h-8 w-8 p-0"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => { setCreateUsername(""); setCreatePwd(""); setCreateOpen(true); }}
+              className="bg-amber-600 hover:bg-amber-500 text-white h-8 px-3 gap-1.5 text-xs"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Tambah User
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={refreshUsers}
+              disabled={loadingUsers}
+              className="text-slate-400 hover:text-white h-8 w-8 p-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingUsers ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
 
         {loadingUsers ? (
@@ -423,6 +460,57 @@ export default function ProfilePage() {
               ))}
           </div>
         )}
+
+        {/* Create User Modal */}
+        <Dialog open={createOpen} onOpenChange={(o) => { if (!o) setCreateOpen(false); }}>
+          <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-amber-400" />
+                Tambah User Baru
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300">Username</Label>
+                <Input
+                  value={createUsername}
+                  onChange={(e) => setCreateUsername(e.target.value)}
+                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
+                  placeholder="Masukkan username"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-300">Password</Label>
+                <div className="relative">
+                  <Input
+                    type={createShowPwd ? "text" : "password"}
+                    value={createPwd}
+                    onChange={(e) => setCreatePwd(e.target.value)}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 pr-10"
+                    placeholder="Masukkan password"
+                  />
+                  <button type="button" onClick={() => setCreateShowPwd(!createShowPwd)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                    {createShowPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}
+                  className="text-slate-400 hover:text-white">Batal</Button>
+                <Button
+                  type="submit"
+                  disabled={createLoading || !createUsername.trim() || !createPwd.trim()}
+                  className="bg-amber-600 hover:bg-amber-500 text-white"
+                >
+                  {createLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buat User"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit User Modal */}
         <Dialog open={!!editUserTarget} onOpenChange={(o) => { if (!o) setEditUserTarget(null); }}>
