@@ -684,7 +684,27 @@ export default function KatalogPage() {
     const matchType = activeTab !== "properties" || typeFilter === "all"
       || (p.type || "").toLowerCase() === typeFilter;
     const q = search.toLowerCase().trim();
-    const matchSearch = !q || p.name?.toLowerCase().includes(q);
+    const arrMatch = (arr?: string[]) => arr?.some((v) => v.toLowerCase().includes(q));
+    const priceStr = p.price != null ? String(p.price) : "";
+    const ratesMatch = p.rates?.some(
+      (r) => r.label.toLowerCase().includes(q) || String(r.price).includes(q)
+    );
+    const matchSearch =
+      !q ||
+      p.name?.toLowerCase().includes(q) ||
+      p.location?.toLowerCase().includes(q) ||
+      p.category?.toLowerCase().includes(q) ||
+      p.type?.toLowerCase().includes(q) ||
+      p.capacity?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      p.duration?.toLowerCase().includes(q) ||
+      priceStr.includes(q) ||
+      ratesMatch ||
+      arrMatch(p.facilities) ||
+      arrMatch(p.menu) ||
+      arrMatch(p.activities) ||
+      arrMatch(p.destinations) ||
+      arrMatch(p.notes);
     return matchType && matchSearch;
   });
 
@@ -742,7 +762,7 @@ export default function KatalogPage() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={`Cari ${currentTab.label.toLowerCase()}...`}
+          placeholder={`Cari nama, lokasi, fasilitas, harga...`}
           className="bg-slate-800 border-slate-600 text-white text-xs h-7 pl-7"
         />
       </div>
