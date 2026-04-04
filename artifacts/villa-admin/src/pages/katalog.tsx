@@ -314,7 +314,7 @@ function DetailModal({ item, endpoint, open, onClose, onEdit, onDelete }: {
   item: CatalogItem; endpoint: CatalogEndpoint; open: boolean;
   onClose: () => void; onEdit: () => void; onDelete: () => void;
 }) {
-  const allImages = [item.image, ...(item.slide_images || [])].filter(Boolean) as string[];
+  const allImages = [item.image].filter(Boolean) as string[];
 
   const typeColor = item.type === "villa"
     ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
