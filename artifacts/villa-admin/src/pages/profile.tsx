@@ -8,6 +8,7 @@ import {
   updateCurrentUser,
   getAllUsers,
   createUser,
+  deleteUser,
   updateUser,
   uploadImage,
   type Reservation,
@@ -30,7 +31,7 @@ import {
 import {
   CalendarCheck, TrendingUp, Wallet, XCircle, Loader2,
   ShieldCheck, Pencil, Lock, Ban, CheckCircle, RefreshCw,
-  ImagePlus, Users, Eye, EyeOff, UserPlus,
+  ImagePlus, Users, Eye, EyeOff, UserPlus, Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,7 +53,7 @@ function initials(name: string) {
 
 /* ─── Admin stats card (superadmin list view) ─── */
 function AdminProfileCard({
-  user, reservations, paletteIdx, onResetPwd, onToggleBan, onEditUser, loading,
+  user, reservations, paletteIdx, onResetPwd, onToggleBan, onEditUser, onDeleteUser, loading,
 }: {
   user: User;
   reservations: Reservation[];
@@ -60,6 +61,7 @@ function AdminProfileCard({
   onResetPwd: (u: User) => void;
   onToggleBan: (u: User) => void;
   onEditUser: (u: User) => void;
+  onDeleteUser: (u: User) => void;
   loading: boolean;
 }) {
   const pal     = AVATAR_PALETTES[paletteIdx % AVATAR_PALETTES.length];
@@ -122,6 +124,16 @@ function AdminProfileCard({
                 : "text-slate-400 hover:text-red-400 hover:bg-red-400/10"}`}
             >
               {isBanned ? <CheckCircle className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Hapus User"
+              disabled={loading}
+              onClick={() => onDeleteUser(user)}
+              className="h-7 w-7 p-0 text-slate-400 hover:text-red-500 hover:bg-red-500/10"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
@@ -195,6 +207,10 @@ export default function ProfilePage() {
   /* ── Ban confirm ── */
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [banLoading, setBanLoading] = useState(false);
+
+  /* ── Delete confirm ── */
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   /* ── Create user (superadmin) ── */
   const [createOpen, setCreateOpen] = useState(false);
@@ -381,6 +397,22 @@ export default function ProfilePage() {
     }
   }
 
+  /* ─── Superadmin: delete user ─── */
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await deleteUser(deleteTarget.id);
+      setAllUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      toast({ title: "User dihapus", description: `User "${deleteTarget.username}" berhasil dihapus` });
+    } catch (err: any) {
+      toast({ title: "Gagal hapus", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteTarget(null);
+    }
+  }
+
   /* ─── Superadmin: ban/unban ─── */
   async function handleBanConfirm() {
     if (!banTarget) return;
@@ -455,7 +487,8 @@ export default function ProfilePage() {
                   onResetPwd={setResetTarget}
                   onToggleBan={setBanTarget}
                   onEditUser={openEditUser}
-                  loading={banLoading}
+                  onDeleteUser={setDeleteTarget}
+                  loading={banLoading || deleteLoading}
                 />
               ))}
           </div>
@@ -606,6 +639,33 @@ export default function ProfilePage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirm */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+          <AlertDialogContent className="bg-slate-800 border-slate-700">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-400" />
+                Hapus User?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-400">
+                User <span className="text-white font-medium">"{deleteTarget?.username}"</span> akan dihapus permanen dan tidak bisa dikembalikan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white bg-transparent">
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="bg-red-600 hover:bg-red-500 text-white"
+              >
+                {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Hapus Permanen"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Ban Confirm */}
         <AlertDialog open={!!banTarget} onOpenChange={(o) => { if (!o) setBanTarget(null); }}>

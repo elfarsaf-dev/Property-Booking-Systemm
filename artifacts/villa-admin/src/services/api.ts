@@ -167,6 +167,16 @@ export async function createUser(data: {
   return Array.isArray(parsed) ? parsed[0] : parsed;
 }
 
+export async function deleteUser(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/users/delete?id=${id}${getAuth().replace("?", "&")}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "Gagal menghapus user");
+    throw new Error(msg);
+  }
+}
+
 export async function updateUser(data: {
   id: string;
   username?: string;
