@@ -1,0 +1,270 @@
+APP: Villa Booking Admin Panel
+API: https://villadata.elfar.my.id
+
+========================================
+📁 STRUKTUR PROJECT
+========================================
+
+/src
+ ├── pages
+ │   ├── login.jsx
+ │   ├── dashboard.jsx
+ │   ├── bookings.jsx
+ │   ├── katalog.jsx
+ │   ├── profile.jsx
+ │
+ ├── components
+ │   ├── navbar.jsx
+ │   ├── chart.jsx
+ │   ├── modalBooking.jsx
+ │
+ ├── services
+ │   └── api.js
+ │
+ ├── utils
+ │   └── helpers.js
+
+
+========================================
+🔐 LOGIN FLOW
+========================================
+
+User login pakai:
+- username
+- password
+
+Disimpan:
+localStorage.setItem("user", username)
+localStorage.setItem("pwd", password)
+
+Dipakai di semua request API
+
+
+========================================
+🌐 API SERVICE (WAJIB)
+========================================
+
+const BASE_URL = "https://villadata.elfar.my.id"
+
+function getAuth() {
+  const user = localStorage.getItem("user")
+  const pwd = localStorage.getItem("pwd")
+  return `?user=${user}&pwd=${pwd}`
+}
+
+// GET RESERVATIONS
+export async function getReservations() {
+  const res = await fetch(`${BASE_URL}/reservations${getAuth()}`)
+  return res.json()
+}
+
+// CREATE
+export async function createReservation(data) {
+  return fetch(`${BASE_URL}/reservations${getAuth()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+}
+
+// UPDATE
+export async function updateReservation(data) {
+  return fetch(`${BASE_URL}/reservations${getAuth()}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+}
+
+// DELETE
+export async function deleteReservation(id) {
+  return fetch(`${BASE_URL}/reservations?id=${id}${getAuth()}`, {
+    method: "DELETE"
+  })
+}
+
+// GET PROPERTIES
+export async function getProperties() {
+  const res = await fetch(`${BASE_URL}/properties${getAuth()}`)
+  return res.json()
+}
+
+
+========================================
+📊 TAB 1: DASHBOARD (HOME)
+========================================
+
+Tampilkan:
+- total booking
+- total omset
+- total dp masuk
+- dp hangus
+
+CHART:
+- line chart per hari
+- data: tanggal, nominal, nama villa
+
+PIE CHART:
+- % villa vs glamping
+
+RIWAYAT:
+- 5–10 booking terbaru
+
+
+========================================
+📅 TAB 2: BOOKINGS
+========================================
+
+FITUR:
+
+1. LIST DATA
+- tampil semua reservasi
+
+2. FILTER
+- tanggal
+- bulan
+- tahun
+
+3. DETAIL (MODAL)
+- klik item → popup detail
+- bisa edit semua field
+- ubah status:
+  - pending
+  - lunas
+  - cancel
+
+4. TAMBAH BOOKING
+
+FORM:
+
+{
+  admin_name: auto dari login,
+  guest_name,
+  guest_phone,
+  property_name,
+  property_id,
+  checkin,
+  checkout,
+  total_price,
+  dp,
+  address,
+  people,
+  vehicles,
+  note,
+  status
+}
+
+AUTO SYNC:
+- kalau property_name cocok:
+  → ambil dari properties:
+    - harga
+    - lokasi
+
+5. EXPORT
+- PDF
+- XLSX
+- CSV
+
+filter:
+- bulan
+- tahun
+
+
+========================================
+🏡 TAB 3: KATALOG
+========================================
+
+- tampil semua properties
+- filter:
+  - villa
+  - glamping
+
+
+========================================
+👤 TAB 4: PROFILE
+========================================
+
+- total booking
+- total omset
+- statistik
+
++ tombol:
+- hubungi CS / bantuan
+
+
+========================================
+💾 STRUKTUR DATA RESERVATION
+========================================
+
+{
+  id: "uuid",
+  admin_name: "Elfar",
+  guest_name: "Budi",
+  guest_phone: "628xxx",
+  property_name: "Villa Asih",
+  property_id: "villa-asih",
+  checkin: "2026-04-10",
+  checkout: "2026-04-12",
+  total_price: 2000000,
+  dp: 500000,
+  address: "Solo",
+  people: "dewasa:2, anak:2",
+  vehicles: "mobil:1",
+  note: "",
+  status: "pending"
+}
+
+
+========================================
+🔥 CRUD WAJIB
+========================================
+
+// CREATE
+createReservation(data)
+
+// UPDATE
+updateReservation({ id, ...data })
+
+// DELETE
+deleteReservation(id)
+
+// GET
+getReservations()
+
+
+========================================
+⚠️ RULE PENTING
+========================================
+
+- semua request wajib pakai:
+  ?user=xxx&pwd=xxx
+
+- admin_name auto dari login
+- status wajib ada
+- semua field editable
+
+
+========================================
+🚀 FLOW FINAL
+========================================
+
+Login
+↓
+Dashboard (summary + chart)
+↓
+Bookings (CRUD + filter + export)
+↓
+Katalog (lihat property)
+↓
+Profile (statistik)
+
+
+========================================
+💀 TARGET AKHIR
+========================================
+
+- Admin panel jalan
+- Bisa tambah booking
+- Bisa edit status
+- Bisa lihat laporan
+- Bisa export data

@@ -1,0 +1,66 @@
+{
+    "id": "villa-rumah-nenek-1-sekipan",
+    "name": "Villa RN1-S",
+    "location": "Sekipan, Tawangmangu",
+    "type": "villa",
+    "rates": [
+      {
+        "label": "Minggu - Kamis",
+        "price": 2000000
+      },
+      {
+        "label": "Jumat",
+        "price": 2500000
+      },
+      {
+        "label": "Sabtu / Weekend",
+        "price": 3000000
+      }
+    ],
+    "facilities": [
+      "Villa + Balkon",
+      "5 Kamar Tidur",
+      "3 Kamar Mandi Air Panas",
+      "1 Kamar Mandi biasa",
+      "Mini Kolam Renang",
+      "Pantry / Mini Bar",
+      "Fasilitas Dapur Lengkap",
+      "Ruang Keluarga",
+      "TV Cable 43 Inch",
+      "Karaoke",
+      "Free Wifi",
+      "Disediakan Alat Bakaran BBQ",
+      "Free Gula, Teh, Kopi",
+      "Free Mie Instan dan Telur",
+      "Free Aqua Galon",
+      "Parkir 5–6 Mobil",
+      "View Perbukitan dan Hutan Pinus"
+    ],
+    "capacity": "15–20 orang",
+    "notes": [
+      "Check in jam 14.00",
+      "Check out jam 12.00",
+      "Bukti nikah untuk pasangan",
+      "No miras",
+      "No mesum",
+      "No drugs"
+    ],
+    "image": "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5071.jpeg",
+    "slide_images": [
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5077.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5078.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5081.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5095.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5093.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5097.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5105.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5112.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5108.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5118.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5117.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5099.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5086.jpeg",
+      "https://img.cocspedsafliz.workers.dev/?url=https%3A%2F%2Ffcdn.my.id%2Fi%2FIMG_5073.jpeg"
+    ],
+    "units": 1
+  },

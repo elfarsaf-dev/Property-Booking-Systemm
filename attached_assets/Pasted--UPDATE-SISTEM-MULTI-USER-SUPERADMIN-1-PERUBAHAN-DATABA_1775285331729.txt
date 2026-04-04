@@ -1,0 +1,217 @@
+🔥 UPDATE SISTEM (MULTI USER + SUPERADMIN)
+
+✅ 1. PERUBAHAN DATABASE
+
+🧑‍💻 TABLE "users"
+
+Digunakan untuk login & manajemen user
+
+Fields:
+
+- id (uuid, auto generate)
+- username (unique)
+- password
+- status (active / banned)
+- profile_url
+- created_at
+
+---
+
+📦 TABLE "reservations" (UPDATED)
+
+Tambahan field:
+
+- admin_id (uuid) → relasi ke users.id
+- admin_name (text) → hanya untuk display
+
+Relasi:
+users.id → reservations.admin_id
+
+---
+
+✅ 2. SISTEM LOGIN (UPDATED)
+
+SEBELUM:
+
+- Login pakai array di worker
+
+SESUDAH:
+
+- Login pakai database (users)
+- Validasi username & password
+- Cek status (banned tidak bisa login)
+
+---
+
+✅ 3. SISTEM FILTER DATA
+
+SEBELUM:
+
+- Filter pakai admin_name
+- Problem: username berubah → data hilang
+
+SESUDAH:
+
+- Filter pakai admin_id (uuid)
+
+Contoh:
+reservations?admin_id=eq.USER_ID
+
+Keuntungan:
+
+- Data tetap aman
+- Username bebas diganti
+- Relasi database valid
+
+---
+
+✅ 4. SISTEM INSERT DATA
+
+Saat create reservation:
+
+- admin_id = currentUser.id
+- admin_name = currentUser.username
+
+Tujuan:
+
+- admin_id → relasi utama
+- admin_name → tampilan UI
+
+---
+
+✅ 5. SUPERADMIN SYSTEM
+
+User dengan:
+username = "superadmin"
+
+Memiliki akses:
+
+👑 SUPERADMIN
+
+- Lihat semua reservations
+- Edit semua reservations
+- Hapus semua reservations
+- Lihat semua user
+- Edit semua user
+- Banned / unbanned user
+- Reset password user
+
+---
+
+👤 USER BIASA
+
+- Hanya lihat data sendiri
+- Tidak bisa edit data user lain
+- Tidak bisa akses data user lain
+
+---
+
+✅ 6. FILTER RESERVATIONS
+
+Logic:
+
+IF superadmin:
+→ ambil semua data
+
+ELSE:
+→ filter admin_id = currentUser.id
+
+---
+
+✅ 7. SECURITY UPDATE (IMPORTANT)
+
+- Gunakan admin_id sebagai relasi utama
+- Jangan gunakan admin_name untuk filter
+- Jangan expose password di API
+- Gunakan validasi status (active/banned)
+
+---
+
+✅ 8. ENDPOINT USER
+
+🔹 GET USER LOGIN
+
+GET /user
+→ ambil data user login
+
+---
+
+🔹 UPDATE USER SENDIRI
+
+POST /user/update
+→ update username, password, profile
+
+---
+
+🔹 GET ALL USERS (SUPERADMIN)
+
+GET /users
+→ hanya superadmin
+
+---
+
+🔹 UPDATE USER (SUPERADMIN)
+
+POST /users/update
+→ edit user lain
+
+---
+
+✅ 9. ENDPOINT RESERVATIONS
+
+GET /reservations
+
+- superadmin → semua data
+- user → hanya data sendiri
+
+---
+
+POST /reservations
+
+- auto inject:
+  admin_id
+  admin_name
+
+---
+
+PUT /reservations
+
+- superadmin → bebas edit
+- user → hanya data sendiri
+
+---
+
+DELETE /reservations
+
+- superadmin → bebas hapus
+- user → hanya data sendiri
+
+---
+
+✅ 10. FLOW FINAL SYSTEM
+
+Login → Ambil user dari DB →
+Simpan currentUser →
+Gunakan currentUser.id →
+Filter data pakai admin_id →
+Superadmin bypass filter
+
+---
+
+🚀 HASIL AKHIR
+
+- Multi user system
+- Data tiap user terpisah otomatis
+- Superadmin punya full control
+- Username bisa diubah tanpa merusak data
+- Database relational (proper)
+
+---
+
+⚠️ CATATAN
+
+- Password masih plain text (bisa upgrade nanti)
+- Jangan expose password di API
+- Gunakan UUID untuk relasi, bukan username
+
+---

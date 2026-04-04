@@ -1,0 +1,149 @@
+APP: CRUD SYSTEM (PROPERTIES, TRIPS, CATERING, OUTBOUND)
+
+BASE API:
+https://villadata.elfar.my.id
+
+AUTH:
+Semua request wajib pakai:
+?user=USERNAME&pwd=PASSWORD
+
+========================================
+📦 ENDPOINT UTAMA
+
+/properties
+/trips
+/catering
+/outbound
+
+========================================
+📋 GET DATA (AMBIL)
+
+GET /{endpoint}?user=xxx&pwd=xxx
+
+Contoh:
+GET /properties?user=Elfar&pwd=telkomsel
+GET /trips?user=Elfar&pwd=telkomsel
+GET /catering?user=Elfar&pwd=telkomsel
+GET /outbound?user=Elfar&pwd=telkomsel
+
+Return: JSON array
+
+========================================
+➕ TAMBAH DATA (CREATE)
+
+POST /{endpoint}?user=xxx&pwd=xxx
+
+Body JSON:
+{
+"name": "Nama data",
+"price": 100000,
+"category": "opsional",
+"description": "opsional",
+"image": "url",
+"facilities": ["..."],
+"menu": ["..."],
+"activities": ["..."]
+}
+
+Catatan:
+
+- field menyesuaikan table
+- tidak wajib semua field diisi
+
+========================================
+✏️ EDIT DATA (UPDATE)
+
+PUT /{endpoint}?user=xxx&pwd=xxx
+
+WAJIB ADA:
+"id"
+
+Contoh body:
+{
+"id": "uuid-atau-id",
+"name": "Nama baru",
+"price": 200000
+}
+
+Catatan:
+
+- hanya field yang dikirim yang akan diupdate
+- ID wajib ada
+
+========================================
+❌ HAPUS DATA (DELETE)
+
+DELETE /{endpoint}?id=xxx&user=xxx&pwd=xxx
+
+Contoh:
+DELETE /trips?id=short-trip-1&user=Elfar&pwd=telkomsel
+
+========================================
+🧠 STRUKTUR UMUM DATA
+
+PROPERTIES:
+
+- id
+- name
+- location
+- price
+- facilities
+- image
+
+TRIPS:
+
+- id
+- name
+- category
+- price
+- destinations (array)
+- facilities (array)
+- notes (array)
+
+CATERING:
+
+- id
+- name
+- category
+- price
+- menu (array)
+- description
+
+OUTBOUND:
+
+- id
+- name
+- category
+- price
+- duration
+- activities (array)
+- facilities (array)
+
+========================================
+🚀 FLOW FRONTEND
+
+1. Ambil data → GET
+2. Tampilkan list
+3. Klik item → edit
+4. Submit → PUT
+5. Tambah → POST
+6. Hapus → DELETE
+
+========================================
+⚠️ RULE PENTING
+
+- Semua request wajib pakai auth (?user & pwd)
+- ID wajib untuk edit & delete
+- JSON harus valid
+- Array pakai format: ["item1","item2"]
+
+========================================
+💀 HASIL AKHIR
+
+Frontend bisa:
+✔ lihat data
+✔ tambah data
+✔ edit data
+✔ hapus data
+
+Semua endpoint pakai pola yang sama (universal CRUD)

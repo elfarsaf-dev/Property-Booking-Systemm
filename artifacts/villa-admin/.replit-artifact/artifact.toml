@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Villa Booking Admin Panel"
+version = "1.0.0"
+id = "artifacts/villa-admin"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23001
+
+[services.development]
+run = "pnpm --filter @workspace/villa-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/villa-admin", "run", "build" ]
+publicDir = "artifacts/villa-admin/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23001"
+BASE_PATH = "/"
