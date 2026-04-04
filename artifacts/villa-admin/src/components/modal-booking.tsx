@@ -13,13 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   createReservation,
@@ -123,9 +116,6 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
   /* ── property picker state ── */
   const [properties, setProperties] = useState<Property[]>([]);
   const [filterType, setFilterType] = useState<"all" | "villa" | "glamping">("all");
-  const [filterLocation, setFilterLocation] = useState("all");
-  const [filterCapacity, setFilterCapacity] = useState("all");
-  const [filterFacility, setFilterFacility] = useState("all");
   const [propSearch, setPropSearch] = useState("");
   const [propOpen, setPropOpen] = useState(false);
   const propRef = useRef<HTMLDivElement>(null);
@@ -202,9 +192,6 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
         address: "", people: "", vehicles: "", note: "", status: "pending",
       });
       setFilterType("all");
-      setFilterLocation("all");
-      setFilterCapacity("all");
-      setFilterFacility("all");
     }
     if (!open) {
       setPropSearch(""); setPropOpen(false);
@@ -213,47 +200,18 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
   }, [reservation, open]);
 
   /* ── computed ── */
-  const locations = useMemo(() => {
-    const locs = new Set(properties.map((p) => p.location).filter(Boolean));
-    return [...locs].sort();
-  }, [properties]);
-
-  const capacities = useMemo(() => {
-    const caps = new Set(properties.map((p) => p.capacity).filter(Boolean));
-    return [...caps].sort((a, b) => {
-      const numA = parseInt(a) || 0;
-      const numB = parseInt(b) || 0;
-      return numA - numB;
-    });
-  }, [properties]);
-
-  const allFacilities = useMemo(() => {
-    const facs = new Set<string>();
-    properties.forEach((p) => p.facilities?.forEach((f) => f && facs.add(f)));
-    return [...facs].sort();
-  }, [properties]);
-
-  const filteredProperties = useMemo(() => {
-    return properties.filter((p) => {
-      const matchType = filterType === "all" || p.type === filterType;
-      const matchLoc = filterLocation === "all" || p.location === filterLocation;
-      const matchCapacity = filterCapacity === "all" || p.capacity === filterCapacity;
-      const matchFacility = filterFacility === "all" || p.facilities?.includes(filterFacility);
-      return matchType && matchLoc && matchCapacity && matchFacility;
-    });
-  }, [properties, filterType, filterLocation, filterCapacity, filterFacility]);
-
   const searchedProperties = useMemo(() => {
-    if (!propSearch.trim()) return filteredProperties;
+    const byType = filterType === "all" ? properties : properties.filter((p) => p.type === filterType);
+    if (!propSearch.trim()) return byType;
     const q = propSearch.toLowerCase();
-    return filteredProperties.filter(
+    return byType.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.location?.toLowerCase().includes(q) ||
         p.facilities?.some((f) => f.toLowerCase().includes(q)) ||
         p.capacity?.toLowerCase().includes(q)
     );
-  }, [filteredProperties, propSearch]);
+  }, [properties, filterType, propSearch]);
 
   const searchedCatalog = useMemo(() => {
     if (!catSearch.trim()) return catalogItems;
@@ -515,41 +473,6 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
                           </button>
                         ))}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Select value={filterLocation} onValueChange={(v) => { setFilterLocation(v); form.setValue("property_id", ""); }}>
-                          <SelectTrigger className="bg-slate-800 border-slate-600 text-white text-xs h-9 w-full sm:w-36">
-                            <SelectValue placeholder="Filter lokasi" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
-                            <SelectItem value="all" className="text-white text-xs">Semua lokasi</SelectItem>
-                            {locations.map((loc) => (
-                              <SelectItem key={loc} value={loc} className="text-white text-xs">{loc}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={filterCapacity} onValueChange={(v) => { setFilterCapacity(v); form.setValue("property_id", ""); }}>
-                          <SelectTrigger className="bg-slate-800 border-slate-600 text-white text-xs h-9 w-full sm:w-36">
-                            <SelectValue placeholder="Kapasitas" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
-                            <SelectItem value="all" className="text-white text-xs">Semua kapasitas</SelectItem>
-                            {capacities.map((cap) => (
-                              <SelectItem key={cap} value={cap} className="text-white text-xs">{cap}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={filterFacility} onValueChange={(v) => { setFilterFacility(v); form.setValue("property_id", ""); }}>
-                          <SelectTrigger className="bg-slate-800 border-slate-600 text-white text-xs h-9 w-full sm:w-36">
-                            <SelectValue placeholder="Fasilitas" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-700">
-                            <SelectItem value="all" className="text-white text-xs">Semua fasilitas</SelectItem>
-                            {allFacilities.map((fac) => (
-                              <SelectItem key={fac} value={fac} className="text-white text-xs">{fac}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                   )}
                   {isReadonly ? (
@@ -589,7 +512,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
                                 type="text"
                                 value={propSearch}
                                 onChange={(e) => setPropSearch(e.target.value)}
-                                placeholder="Cari nama properti..."
+                                placeholder="Cari nama, lokasi, fasilitas, kapasitas..."
                                 className="flex-1 bg-transparent text-white text-sm py-1.5 outline-none placeholder:text-slate-500"
                                 autoFocus
                               />
