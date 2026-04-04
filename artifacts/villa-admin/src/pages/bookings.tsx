@@ -37,6 +37,10 @@ import {
   Loader2,
   RefreshCw,
   ChevronRight,
+  Trash2,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -74,6 +78,12 @@ export default function BookingsPage() {
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create">("view");
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  /* ── Multi-select ── */
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -126,6 +136,10 @@ export default function BookingsPage() {
   }
 
   function openView(r: Reservation) {
+    if (selectMode) {
+      toggleSelect(r.id);
+      return;
+    }
     setSelected(r);
     setModalMode("view");
     setModalOpen(true);
@@ -144,6 +158,54 @@ export default function BookingsPage() {
     setDeleteId(null);
   }
 
+  /* ── Multi-select helpers ── */
+  function toggleSelectMode() {
+    setSelectMode((prev) => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((r) => r.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkDeleting(true);
+    let failed = 0;
+    for (const id of selectedIds) {
+      try {
+        const res = await deleteReservation(id);
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    if (failed === 0) {
+      toast({ title: "Berhasil dihapus", description: `${selectedIds.size} reservasi dihapus` });
+    } else {
+      toast({ title: "Sebagian gagal", description: `${failed} reservasi gagal dihapus`, variant: "destructive" });
+    }
+    load();
+  }
+
   async function handleExportXLSX() {
     await exportToXLSX(filtered, adminName, filterMonth, filterYear);
   }
@@ -151,6 +213,9 @@ export default function BookingsPage() {
   function handleExportPDF() {
     exportToPDF(filtered, adminName, filterMonth, filterYear);
   }
+
+  const allSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const someSelected = selectedIds.size > 0;
 
   return (
     <div className="space-y-5">
@@ -163,24 +228,67 @@ export default function BookingsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={load}
-            className="border-slate-600 text-slate-300 hover:bg-slate-800 h-8 px-2.5"
-            data-testid="button-refresh"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            onClick={openCreate}
-            className="bg-blue-600 hover:bg-blue-500 text-white h-8 px-3"
-            data-testid="button-tambah"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Tambah
-          </Button>
+          {!selectMode ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={load}
+                className="border-slate-600 text-slate-300 hover:bg-slate-800 h-8 px-2.5"
+                data-testid="button-refresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={toggleSelectMode}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 h-8 px-3 text-xs"
+              >
+                <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+                Pilih
+              </Button>
+              <Button
+                size="sm"
+                onClick={openCreate}
+                className="bg-blue-600 hover:bg-blue-500 text-white h-8 px-3"
+                data-testid="button-tambah"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Tambah
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={toggleSelectAll}
+                className="text-slate-300 hover:text-white h-8 px-3 text-xs border border-slate-600 hover:bg-slate-700"
+              >
+                {allSelected ? <CheckSquare className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> : <Square className="w-3.5 h-3.5 mr-1.5" />}
+                {allSelected ? "Batal semua" : "Pilih semua"}
+              </Button>
+              {someSelected && (
+                <Button
+                  size="sm"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="bg-red-600 hover:bg-red-500 text-white h-8 px-3 text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Hapus ({selectedIds.size})
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={toggleSelectMode}
+                className="text-slate-400 hover:text-white h-8 w-8 p-0"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -302,34 +410,49 @@ export default function BookingsPage() {
         <>
           {/* Mobile card list */}
           <div className="flex flex-col gap-2 md:hidden">
-            {filtered.map((r) => (
-              <div
-                key={r.id}
-                data-testid={`row-booking-${r.id}`}
-                onClick={() => openView(r)}
-                className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-3 cursor-pointer active:bg-slate-700/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{r.guest_name}</p>
-                    <p className="text-slate-500 text-xs">{r.guest_phone}</p>
+            {filtered.map((r) => {
+              const isChecked = selectedIds.has(r.id);
+              return (
+                <div
+                  key={r.id}
+                  data-testid={`row-booking-${r.id}`}
+                  onClick={() => openView(r)}
+                  className={`bg-slate-800/60 border rounded-xl px-4 py-3 cursor-pointer active:bg-slate-700/40 transition-colors ${
+                    isChecked ? "border-blue-500/60 bg-blue-500/10" : "border-slate-700/50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {selectMode && (
+                        <div className="flex-shrink-0">
+                          {isChecked
+                            ? <CheckSquare className="w-4 h-4 text-blue-400" />
+                            : <Square className="w-4 h-4 text-slate-500" />
+                          }
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold text-sm truncate">{r.guest_name}</p>
+                        <p className="text-slate-500 text-xs">{r.guest_phone}</p>
+                      </div>
+                    </div>
+                    <Badge className={`${getStatusColor(r.status)} border text-xs px-2 py-0.5 shrink-0`}>
+                      {getStatusLabel(r.status)}
+                    </Badge>
                   </div>
-                  <Badge className={`${getStatusColor(r.status)} border text-xs px-2 py-0.5 shrink-0`}>
-                    {getStatusLabel(r.status)}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[detectBookingCategory(r.property_id)]}`}>
+                      {CATEGORY_LABELS[detectBookingCategory(r.property_id)]}
+                    </span>
+                    <p className="text-slate-300 text-xs font-medium truncate">{r.property_name}</p>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{formatDate(r.checkin)} → {formatDate(r.checkout)}</span>
+                    <span className="text-slate-300 font-medium">{formatRupiah(r.total_price)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[detectBookingCategory(r.property_id)]}`}>
-                    {CATEGORY_LABELS[detectBookingCategory(r.property_id)]}
-                  </span>
-                  <p className="text-slate-300 text-xs font-medium truncate">{r.property_name}</p>
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{formatDate(r.checkin)} → {formatDate(r.checkout)}</span>
-                  <span className="text-slate-300 font-medium">{formatRupiah(r.total_price)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Desktop table */}
@@ -338,6 +461,16 @@ export default function BookingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-slate-400 text-xs border-b border-slate-700 bg-slate-800/80">
+                    {selectMode && (
+                      <th className="px-4 py-3 w-10">
+                        <button onClick={toggleSelectAll}>
+                          {allSelected
+                            ? <CheckSquare className="w-4 h-4 text-blue-400" />
+                            : <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                          }
+                        </button>
+                      </th>
+                    )}
                     <th className="text-left px-4 py-3 font-medium">Tamu</th>
                     <th className="text-left px-4 py-3 font-medium">Properti</th>
                     <th className="text-left px-4 py-3 font-medium">Checkin</th>
@@ -349,40 +482,55 @@ export default function BookingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => (
-                    <tr
-                      key={r.id}
-                      data-testid={`row-booking-${r.id}`}
-                      className="border-b border-slate-700/50 hover:bg-slate-700/20 cursor-pointer transition-colors"
-                      onClick={() => openView(r)}
-                    >
-                      <td className="px-4 py-3">
-                        <p className="text-white font-medium">{r.guest_name}</p>
-                        <p className="text-slate-500 text-xs">{r.guest_phone}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[detectBookingCategory(r.property_id)]}`}>
-                            {CATEGORY_LABELS[detectBookingCategory(r.property_id)]}
-                          </span>
-                          <p className="text-slate-300">{r.property_name}</p>
-                        </div>
-                        <p className="text-slate-500 text-xs">{r.address}</p>
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">{formatDate(r.checkin)}</td>
-                      <td className="px-4 py-3 text-slate-400">{formatDate(r.checkout)}</td>
-                      <td className="px-4 py-3 text-slate-300">{formatRupiah(r.total_price)}</td>
-                      <td className="px-4 py-3 text-slate-400">{formatRupiah(r.dp)}</td>
-                      <td className="px-4 py-3">
-                        <Badge className={`${getStatusColor(r.status)} border text-xs px-2 py-0.5`}>
-                          {getStatusLabel(r.status)}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <ChevronRight className="w-4 h-4 text-slate-600" />
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map((r) => {
+                    const isChecked = selectedIds.has(r.id);
+                    return (
+                      <tr
+                        key={r.id}
+                        data-testid={`row-booking-${r.id}`}
+                        className={`border-b border-slate-700/50 cursor-pointer transition-colors ${
+                          isChecked
+                            ? "bg-blue-500/10 hover:bg-blue-500/20"
+                            : "hover:bg-slate-700/20"
+                        }`}
+                        onClick={() => openView(r)}
+                      >
+                        {selectMode && (
+                          <td className="px-4 py-3">
+                            {isChecked
+                              ? <CheckSquare className="w-4 h-4 text-blue-400" />
+                              : <Square className="w-4 h-4 text-slate-500" />
+                            }
+                          </td>
+                        )}
+                        <td className="px-4 py-3">
+                          <p className="text-white font-medium">{r.guest_name}</p>
+                          <p className="text-slate-500 text-xs">{r.guest_phone}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[detectBookingCategory(r.property_id)]}`}>
+                              {CATEGORY_LABELS[detectBookingCategory(r.property_id)]}
+                            </span>
+                            <p className="text-slate-300">{r.property_name}</p>
+                          </div>
+                          <p className="text-slate-500 text-xs">{r.address}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{formatDate(r.checkin)}</td>
+                        <td className="px-4 py-3 text-slate-400">{formatDate(r.checkout)}</td>
+                        <td className="px-4 py-3 text-slate-300">{formatRupiah(r.total_price)}</td>
+                        <td className="px-4 py-3 text-slate-400">{formatRupiah(r.dp)}</td>
+                        <td className="px-4 py-3">
+                          <Badge className={`${getStatusColor(r.status)} border text-xs px-2 py-0.5`}>
+                            {getStatusLabel(r.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {!selectMode && <ChevronRight className="w-4 h-4 text-slate-600" />}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </CardContent>
@@ -399,6 +547,7 @@ export default function BookingsPage() {
         onDelete={(id) => { setDeleteId(id); }}
       />
 
+      {/* Single delete confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-700">
           <AlertDialogHeader>
@@ -416,6 +565,33 @@ export default function BookingsPage() {
               className="bg-red-600 hover:bg-red-500 text-white"
             >
               Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirm */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent className="bg-slate-900 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-red-400" />
+              Hapus {selectedIds.size} Reservasi?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Semua reservasi yang dipilih akan dihapus permanen dan tidak bisa dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700">
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-red-600 hover:bg-red-500 text-white"
+            >
+              {bulkDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Hapus ${selectedIds.size} Reservasi`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
