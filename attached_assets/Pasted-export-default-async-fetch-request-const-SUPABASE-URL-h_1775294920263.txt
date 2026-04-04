@@ -1,0 +1,253 @@
+export default {
+  async fetch(request) {
+    const SUPABASE_URL = "https://qysxurocixcryttimqww.supabase.co"
+    const SUPABASE_KEY = "xxxxx"
+    const url = new URL(request.url)
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "*"
+    }
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders })
+    }
+    async function getUser() {
+      const user = url.searchParams.get("user")
+      const pwd = url.searchParams.get("pwd")
+      if (!user || !pwd) return null
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?username=eq.${user}&password=eq.${pwd}&select=*`,
+        {
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+          }
+        }
+      )
+      const data = await res.json()
+      if (!data.length) return null
+      if (data[0].status === "banned") return null
+      return data[0]
+    }
+    const currentUser = await getUser()
+    if (!currentUser) {
+      return new Response("Unauthorized", { status: 401, headers: corsHeaders })
+    }
+    async function supabaseFetch(path, options = {}) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Prefer": "return=representation",
+          ...options.headers
+        }
+      })
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      })
+    }
+    // ── PROPERTIES ──
+    if (url.pathname === "/properties" && request.method === "GET")
+      return supabaseFetch("properties?select=*")
+    if (url.pathname === "/properties" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("properties", { method: "POST", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/properties" && request.method === "PUT") {
+      const body = await request.json()
+      return supabaseFetch(`properties?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/properties" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      return supabaseFetch(`properties?id=eq.${id}`, { method: "DELETE" })
+    }
+    // ── RESERVATIONS ──
+    if (url.pathname === "/reservations" && request.method === "GET") {
+      let query = "reservations?select=*"
+      if (currentUser.username !== "superadmin")
+        query += `&admin_id=eq.${currentUser.id}`
+      return supabaseFetch(query)
+    }
+    if (url.pathname === "/reservations" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("reservations", {
+        method: "POST",
+        body: JSON.stringify({ ...body, admin_id: currentUser.id, admin_name: currentUser.username })
+      })
+    }
+    if (url.pathname === "/reservations" && request.method === "PUT") {
+      const body = await request.json()
+      let filter = `id=eq.${body.id}`
+      if (currentUser.username !== "superadmin") filter += `&admin_id=eq.${currentUser.id}`
+      return supabaseFetch(`reservations?${filter}`, { method: "PATCH", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/reservations" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      let filter = `id=eq.${id}`
+      if (currentUser.username !== "superadmin") filter += `&admin_id=eq.${currentUser.id}`
+      return supabaseFetch(`reservations?${filter}`, { method: "DELETE" })
+    }
+    // ── MESSAGES ──
+    if (url.pathname === "/messages" && request.method === "GET") {
+      const user1 = url.searchParams.get("user1")
+      const user2 = url.searchParams.get("user2")
+      return supabaseFetch(`messages?select=*&or=(and(sender.eq.${user1},receiver.eq.${user2}),and(sender.eq.${user2},receiver.eq.${user1}))&order=created_at.asc`)
+    }
+    if (url.pathname === "/messages" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("messages", { method: "POST", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/messages" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      return supabaseFetch(`messages?id=eq.${id}`, { method: "DELETE" })
+    }
+    // ── TRIPS ──
+    if (url.pathname === "/trips" && request.method === "GET") return supabaseFetch("trips?select=*")
+    if (url.pathname === "/trips" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("trips", { method: "POST", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/trips" && request.method === "PUT") {
+      const body = await request.json()
+      return supabaseFetch(`trips?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/trips" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      return supabaseFetch(`trips?id=eq.${id}`, { method: "DELETE" })
+    }
+    // ── CATERING ──
+    if (url.pathname === "/catering" && request.method === "GET") return supabaseFetch("catering?select=*")
+    if (url.pathname === "/catering" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("catering", { method: "POST", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/catering" && request.method === "PUT") {
+      const body = await request.json()
+      return supabaseFetch(`catering?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/catering" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      return supabaseFetch(`catering?id=eq.${id}`, { method: "DELETE" })
+    }
+    // ── OUTBOUND ──
+    if (url.pathname === "/outbound" && request.method === "GET") return supabaseFetch("outbound?select=*")
+    if (url.pathname === "/outbound" && request.method === "POST") {
+      const body = await request.json()
+      return supabaseFetch("outbound", { method: "POST", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/outbound" && request.method === "PUT") {
+      const body = await request.json()
+      return supabaseFetch(`outbound?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify(body) })
+    }
+    if (url.pathname === "/outbound" && request.method === "DELETE") {
+      const id = url.searchParams.get("id")
+      return supabaseFetch(`outbound?id=eq.${id}`, { method: "DELETE" })
+    }
+    // ── UPLOAD ──
+    if (url.pathname === "/upload" && request.method === "POST") {
+      try {
+        const GITHUB_TOKEN = "xxxxxxx"
+        const body = await request.json()
+        const repo = "elfarsaf-dev/lawuscape"
+        const fileName = Date.now() + "-" + body.fileName
+        const path = `uploads/${fileName}`
+        const github = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${GITHUB_TOKEN}`,
+            "Content-Type": "application/json",
+            "User-Agent": "cloudflare-worker"
+          },
+          body: JSON.stringify({ message: "upload file", content: body.content })
+        })
+        const data = await github.json()
+        const cdnUrl = `https://cdn.jsdelivr.net/gh/${repo}@main/${path}`
+        return new Response(JSON.stringify({
+          success: true,
+          content: { download_url: cdnUrl },
+          raw: data
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+      } catch (err) {
+        return new Response("ERROR: " + err.message, { status: 500, headers: corsHeaders })
+      }
+    }
+    // ── USER ──
+    if (url.pathname === "/user" && request.method === "GET") {
+      return new Response(JSON.stringify({
+        id: currentUser.id,
+        username: currentUser.username,
+        status: currentUser.status,
+        profile_url: currentUser.profile_url
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    }
+    if (url.pathname === "/user/update" && request.method === "POST") {
+      const body = await request.json()
+      const updateData = {}
+      if (body.username) updateData.username = body.username
+      if (body.password) updateData.password = body.password
+      if (body.profile_url) updateData.profile_url = body.profile_url
+      return supabaseFetch(`users?id=eq.${currentUser.id}`, { method: "PATCH", body: JSON.stringify(updateData) })
+    }
+    // ── USERS (superadmin) ──
+    if (url.pathname === "/users" && request.method === "GET") {
+      if (currentUser.username !== "superadmin")
+        return new Response("Forbidden", { status: 403, headers: corsHeaders })
+      return supabaseFetch("users?select=id,username,status,profile_url,created_at")
+    }
+    if (url.pathname === "/users/update" && request.method === "POST") {
+      if (currentUser.username !== "superadmin")
+        return new Response("Forbidden", { status: 403, headers: corsHeaders })
+      const body = await request.json()
+      if (!body.id) return new Response("User ID required", { status: 400, headers: corsHeaders })
+      const updateData = {}
+      if (body.username) updateData.username = body.username
+      if (body.password) updateData.password = body.password
+      if (body.profile_url) updateData.profile_url = body.profile_url
+      if (body.status) {
+        if (!["active", "banned"].includes(body.status))
+          return new Response("Invalid status", { status: 400, headers: corsHeaders })
+        updateData.status = body.status
+      }
+      return supabaseFetch(`users?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify(updateData) })
+    }
+    if (url.pathname === "/users/create" && request.method === "POST") {
+// 🔒 hanya superadmin
+if (currentUser.username !== "superadmin") {
+return new Response("Forbidden", { status: 403 })
+}
+const body = await request.json()
+// validasi basic
+if (!body.username || !body.password) {
+return new Response("username & password wajib", { status: 400 })
+}
+// optional: cek user sudah ada
+const check = await fetch(
+"${SUPABASE_URL}/rest/v1/users?username=eq.${body.username}&select=id",
+{
+headers: {
+"apikey": SUPABASE_KEY,
+"Authorization": "Bearer ${SUPABASE_KEY}"
+}
+}
+)
+const exists = await check.json()
+if (exists.length > 0) {
+return new Response("Username sudah dipakai", { status: 400 })
+}
+// create user
+return supabaseFetch("users", {
+method: "POST",
+body: JSON.stringify({
+username: body.username,
+password: body.password,
+status: "active",
+profile_url: body.profile_url || null
+})
+})
+}
+    return new Response("Not Found", { status: 404, headers: corsHeaders })
+  }
+}

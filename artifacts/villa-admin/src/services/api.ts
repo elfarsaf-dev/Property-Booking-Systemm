@@ -163,7 +163,8 @@ export async function createUser(data: {
   }
   const text = await res.text();
   if (!text) return { id: "", username: data.username, status: "active" } as User;
-  return JSON.parse(text);
+  const parsed = JSON.parse(text);
+  return Array.isArray(parsed) ? parsed[0] : parsed;
 }
 
 export async function updateUser(data: {
