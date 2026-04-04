@@ -119,6 +119,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
   const [propSearch, setPropSearch] = useState("");
   const [propOpen, setPropOpen] = useState(false);
   const propRef = useRef<HTMLDivElement>(null);
+  const [baseRate, setBaseRate] = useState(0);
 
   /* ── catalog picker state (trips/catering/outbound) ── */
   const [bookingCategory, setBookingCategory] = useState<BookingCategory>("property");
@@ -192,6 +193,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
         address: "", people: "", vehicles: "", note: "", status: "pending",
       });
       setFilterType("all");
+      setBaseRate(0);
     }
     if (!open) {
       setPropSearch(""); setPropOpen(false);
@@ -221,12 +223,24 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
 
   const meta = CATEGORY_META[bookingCategory];
 
+  /* ── auto-calc total harga × malam ── */
+  const checkin = form.watch("checkin");
+  const checkout = form.watch("checkout");
+  useEffect(() => {
+    if (bookingCategory !== "property" || baseRate <= 0 || mode === "view") return;
+    const n = getNights(checkin, checkout);
+    if (n > 0) {
+      form.setValue("total_price", baseRate * n);
+    }
+  }, [checkin, checkout, baseRate, bookingCategory, mode]);
+
   /* ── handlers ── */
   function handlePropertyChange(id: string) {
     if (id === "__manual__") {
       form.setValue("property_id", "__manual__");
       form.setValue("property_name", "");
       form.setValue("total_price", 0);
+      setBaseRate(0);
       return;
     }
     const prop = properties.find((p) => p.id === id);
@@ -234,7 +248,12 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
       form.setValue("property_name", prop.name);
       form.setValue("property_id", prop.id);
       if (prop.rates && prop.rates.length > 0) {
-        form.setValue("total_price", prop.rates[0].price);
+        const rate = prop.rates[0].price;
+        setBaseRate(rate);
+        const n = getNights(form.getValues("checkin"), form.getValues("checkout"));
+        form.setValue("total_price", n > 0 ? rate * n : rate);
+      } else {
+        setBaseRate(0);
       }
     }
   }
@@ -245,6 +264,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
     form.setValue("property_id", `${endpoint}:${item.id}`);
     const price = item.rates?.[0]?.price ?? item.price ?? 0;
     form.setValue("total_price", price);
+    setBaseRate(0);
     setCatOpen(false);
     setCatSearch("");
   }
@@ -255,6 +275,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
     form.setValue("property_name", "");
     form.setValue("total_price", 0);
     form.setValue("vehicles", "");
+    setBaseRate(0);
   }
 
   async function handleQuickStatus(newStatus: "pending" | "lunas" | "cancel") {
@@ -300,7 +321,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
     }
   }
 
-  const nights = getNights(form.watch("checkin"), form.watch("checkout"));
+  const nights = getNights(checkin, checkout);
   const isReadonly = mode === "view";
   const currentStatus = form.watch("status");
   const detectedCategory = reservation ? detectBookingCategory(reservation.property_id) : bookingCategory;
@@ -683,7 +704,10 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
                 <div className="space-y-1.5">
                   <Label className="text-slate-300 text-xs">
                     Total Harga (Rp)
-                    {!isReadonly && form.watch("property_id") && form.watch("property_id") !== "__manual__" && (
+                    {!isReadonly && baseRate > 0 && nights > 0 && (
+                      <span className="ml-1 text-blue-400 font-normal">· auto ({formatRupiah(baseRate)} × {nights} malam)</span>
+                    )}
+                    {!isReadonly && baseRate > 0 && nights === 0 && (
                       <span className="ml-1 text-blue-400 font-normal">· auto</span>
                     )}
                   </Label>
