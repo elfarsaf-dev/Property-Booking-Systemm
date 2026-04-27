@@ -64,6 +64,7 @@ const schema = z.object({
   vehicles: z.string(),
   note: z.string(),
   status: z.enum(["pending", "lunas", "cancel"]),
+  rooms: z.coerce.number().int().min(1).max(20),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -163,6 +164,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
       guest_name: "", guest_phone: "", property_name: "", property_id: "",
       checkin: "", checkout: "", total_price: 0, dp: 0,
       address: "", people: "", vehicles: "", note: "", status: "pending",
+      rooms: 1,
     },
   });
 
@@ -184,6 +186,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
         vehicles: reservation.vehicles ?? "",
         note: reservation.note,
         status: reservation.status,
+        rooms: 1,
       });
     } else if (!reservation && open) {
       setBookingCategory("property");
@@ -191,6 +194,7 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
         guest_name: "", guest_phone: "", property_name: "", property_id: "",
         checkin: "", checkout: "", total_price: 0, dp: 0,
         address: "", people: "", vehicles: "", note: "", status: "pending",
+        rooms: 1,
       });
       setFilterType("all");
       setBaseRate(0);
@@ -297,20 +301,62 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      const payload = {
-        ...data,
-        vehicles: meta.showVehicles ? data.vehicles : null,
-        checkout: meta.showCheckout ? data.checkout : (data.checkin || null),
+      const { rooms: roomsRaw, ...rest } = data;
+      const rooms = Math.max(1, Math.min(20, Number(roomsRaw) || 1));
+      const basePayload = {
+        ...rest,
+        vehicles: meta.showVehicles ? rest.vehicles : null,
+        checkout: meta.showCheckout ? rest.checkout : (rest.checkin || null),
       } as any;
 
       if (mode === "edit" && reservation) {
-        const res = await updateReservation({ ...reservation, ...payload });
+        const res = await updateReservation({ ...reservation, ...basePayload });
         if (!res.ok) throw new Error("Gagal update");
         toast({ title: "Berhasil", description: "Reservasi diperbarui" });
       } else {
-        const res = await createReservation({ ...payload, admin_id: getAdminId(), admin_name: getAdminName() });
-        if (!res.ok) throw new Error("Gagal create");
-        toast({ title: "Berhasil", description: "Reservasi ditambahkan" });
+        if (rooms === 1) {
+          const res = await createReservation({
+            ...basePayload,
+            admin_id: getAdminId(),
+            admin_name: getAdminName(),
+          });
+          if (!res.ok) throw new Error("Gagal create");
+          toast({ title: "Berhasil", description: "Reservasi ditambahkan" });
+        } else {
+          const baseNote = (basePayload.note || "").trim();
+          let success = 0;
+          let failed = 0;
+          for (let i = 1; i <= rooms; i++) {
+            const roomTag = `Room ${i}`;
+            const note = baseNote ? `${roomTag} — ${baseNote}` : roomTag;
+            try {
+              const res = await createReservation({
+                ...basePayload,
+                note,
+                admin_id: getAdminId(),
+                admin_name: getAdminName(),
+              });
+              if (res.ok) success++;
+              else failed++;
+            } catch {
+              failed++;
+            }
+          }
+          if (failed === 0) {
+            toast({
+              title: "Berhasil",
+              description: `${success} reservasi (Room 1 - Room ${rooms}) berhasil dibuat`,
+            });
+          } else if (success > 0) {
+            toast({
+              title: "Sebagian berhasil",
+              description: `${success} berhasil, ${failed} gagal dibuat`,
+              variant: "destructive",
+            });
+          } else {
+            throw new Error("Semua gagal dibuat");
+          }
+        }
       }
       onSuccess();
       onClose();
@@ -697,6 +743,31 @@ export default function ModalBooking({ open, onClose, reservation, onSuccess, on
               </div>
               {meta.showCheckout && nights > 0 && (
                 <p className="text-blue-400 text-xs -mt-2 font-medium">⏱ Durasi: {nights} malam</p>
+              )}
+
+              {/* Jumlah Room (create mode only) */}
+              {mode === "create" && (
+                <div className="space-y-1.5">
+                  <Label className="text-slate-300 text-xs">
+                    Jumlah Room
+                    <span className="ml-1 text-slate-500 font-normal">
+                      · &gt;1 otomatis bikin beberapa data, dibedakan di catatan
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    {...form.register("rooms")}
+                    className="bg-slate-800 border-slate-600 text-white text-sm h-10 w-28"
+                    inputMode="numeric"
+                  />
+                  {Number(form.watch("rooms")) > 1 && (
+                    <p className="text-blue-400 text-xs font-medium">
+                      Akan dibuat {Number(form.watch("rooms"))} reservasi: Room 1 — Room {Number(form.watch("rooms"))}
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Harga / DP */}

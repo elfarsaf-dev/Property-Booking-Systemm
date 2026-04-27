@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   getReservations,
   deleteReservation,
+  updateReservation,
   getAdminName,
   isSuperAdmin,
   type Reservation,
@@ -85,10 +86,53 @@ export default function BookingsPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  async function load() {
+  /* ── Auto-lunas guard: only run once per page session ── */
+  const autoLunasRan = useRef(false);
+
+  async function autoMarkExpiredAsLunas(data: Reservation[]) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expired = data.filter((r) => {
+      if (r.status !== "pending") return false;
+      const endDateStr = r.checkout || r.checkin;
+      if (!endDateStr) return false;
+      const end = new Date(endDateStr);
+      if (isNaN(end.getTime())) return false;
+      end.setHours(0, 0, 0, 0);
+      return end < today;
+    });
+    if (expired.length === 0) return false;
+    let updated = 0;
+    for (const r of expired) {
+      try {
+        const res = await updateReservation({ ...r, status: "lunas" });
+        if (res.ok) updated++;
+      } catch {
+        /* ignore individual failures */
+      }
+    }
+    if (updated > 0) {
+      toast({
+        title: "Auto Lunas",
+        description: `${updated} booking pending yang sudah lewat tanggal otomatis diubah ke Lunas`,
+      });
+    }
+    return updated > 0;
+  }
+
+  async function load(opts: { autoLunas?: boolean } = {}) {
     setLoading(true);
     try {
       const data = await getReservations();
+      if (opts.autoLunas && !autoLunasRan.current) {
+        autoLunasRan.current = true;
+        const didUpdate = await autoMarkExpiredAsLunas(data);
+        if (didUpdate) {
+          const fresh = await getReservations();
+          setReservations(fresh);
+          return;
+        }
+      }
       setReservations(data);
     } catch {
       toast({ title: "Error", description: "Gagal memuat data", variant: "destructive" });
@@ -97,7 +141,7 @@ export default function BookingsPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load({ autoLunas: true }); }, []);
 
   const years = useMemo(() => {
     const s = new Set(reservations.map((r) => r.checkin?.slice(0, 4)).filter(Boolean));
@@ -110,7 +154,7 @@ export default function BookingsPage() {
   }, [reservations]);
 
   const filtered = useMemo(() => {
-    return reservations.filter((r) => {
+    const list = reservations.filter((r) => {
       const q = search.toLowerCase();
       const matchSearch =
         !q ||
@@ -126,6 +170,12 @@ export default function BookingsPage() {
       const matchFilterAdmin = !superAdmin || filterAdmin === "all" || r.admin_name?.toLowerCase() === filterAdmin.toLowerCase();
       const matchCategory = filterCategory === "all" || detectBookingCategory(r.property_id) === filterCategory;
       return matchSearch && matchMonth && matchYear && matchStatus && matchFilterAdmin && matchCategory;
+    });
+    /* Auto sort by checkin tanggal ascending (1, 2, 3 ...), checkout sebagai tie-breaker */
+    return list.sort((a, b) => {
+      const ci = (a.checkin || "").localeCompare(b.checkin || "");
+      if (ci !== 0) return ci;
+      return (a.checkout || "").localeCompare(b.checkout || "");
     });
   }, [reservations, search, filterMonth, filterYear, filterStatus, filterAdmin, filterCategory, superAdmin]);
 
@@ -233,7 +283,7 @@ export default function BookingsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={load}
+                onClick={() => load()}
                 className="border-slate-600 text-slate-300 hover:bg-slate-800 h-8 px-2.5"
                 data-testid="button-refresh"
               >
