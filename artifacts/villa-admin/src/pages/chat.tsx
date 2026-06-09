@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { getReservations, getAdminName } from "@/services/api";
-import { markContactSeen, getContactSeen } from "@/hooks/use-unread";
+import { useState, useEffect, useCallback } from "react";
+import { getAdminName } from "@/services/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, MessageCircle, Users, ArrowLeft } from "lucide-react";
+import { Send, Loader2, Table2, LinkIcon, RefreshCw, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CHAT_BASE = "https://villa.cocspedsafliz.workers.dev";
+const LINK_RECEIVER = "spreadsheets";
 
-interface Message {
+interface LinkMessage {
   id: string;
   sender: string;
   receiver: string;
@@ -17,31 +17,56 @@ interface Message {
   created_at: string;
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+function toCSVUrl(url: string): string {
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) {
+    const id = match[1];
+    const gidMatch = url.match(/[?&]gid=(\d+)/);
+    const gid = gidMatch ? `&gid=${gidMatch[1]}` : "";
+    return `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv${gid}`;
+  }
+  return url;
 }
 
-function formatDay(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+function parseCSV(text: string): string[][] {
+  const lines = text.split("\n");
+  return lines
+    .map((line) => {
+      const result: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+          inQuotes = !inQuotes;
+        } else if (line[i] === "," && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += line[i];
+        }
+      }
+      result.push(current.trim());
+      return result;
+    })
+    .filter((row) => row.some((cell) => cell !== ""));
 }
 
-async function fetchMessages(user: string, pwd: string, user1: string, user2: string): Promise<Message[]> {
-  const res = await fetch(
-    `${CHAT_BASE}/messages?user=${encodeURIComponent(user)}&pwd=${encodeURIComponent(pwd)}&user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}`
-  );
-  if (!res.ok) throw new Error("Gagal mengambil pesan");
-  return res.json();
+function getLinkName(url: string): string {
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) return `Sheet · ${match[1].slice(0, 10)}…`;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.slice(0, 30) + "…";
+  }
 }
 
-async function sendMessage(user: string, pwd: string, sender: string, receiver: string, message: string): Promise<void> {
-  const res = await fetch(`${CHAT_BASE}/messages?user=${encodeURIComponent(user)}&pwd=${encodeURIComponent(pwd)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sender, receiver, message }),
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
-  if (!res.ok) throw new Error("Gagal mengirim pesan");
 }
 
 export default function ChatPage() {
@@ -49,304 +74,278 @@ export default function ChatPage() {
   const myName = getAdminName();
   const myPwd = localStorage.getItem("pwd") || "";
 
-  const [contacts, setContacts] = useState<string[]>([]);
-  const [loadingContacts, setLoadingContacts] = useState(true);
-  const [selectedContact, setSelectedContact] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [showList, setShowList] = useState(true);
-  const [unreadContacts, setUnreadContacts] = useState<Set<string>>(new Set());
-  const unreadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [links, setLinks] = useState<LinkMessage[]>([]);
+  const [loadingLinks, setLoadingLinks] = useState(true);
+  const [selectedLink, setSelectedLink] = useState<LinkMessage | null>(null);
+  const [tableData, setTableData] = useState<string[][]>([]);
+  const [loadingTable, setLoadingTable] = useState(false);
+  const [tableError, setTableError] = useState("");
+  const [inputUrl, setInputUrl] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    getReservations()
-      .then((data) => {
-        const names = [...new Set(data.map((r) => r.admin_name).filter(Boolean))]
-          .filter((n) => n.toLowerCase() !== myName.toLowerCase())
-          .sort();
-        setContacts(names);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingContacts(false));
-  }, [myName]);
-
-  const checkUnread = useCallback(async (contactList: string[]) => {
-    if (!myName || !myPwd || contactList.length === 0) return;
-    const newUnread = new Set<string>();
-    await Promise.all(
-      contactList.map(async (c) => {
-        try {
-          const res = await fetch(
-            `${CHAT_BASE}/messages?user=${encodeURIComponent(myName)}&pwd=${encodeURIComponent(myPwd)}&user1=${encodeURIComponent(myName)}&user2=${encodeURIComponent(c)}`
-          );
-          if (!res.ok) return;
-          const msgs: Message[] = await res.json();
-          const latest = msgs
-            .filter((m) => m.sender.toLowerCase() === c.toLowerCase())
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-          if (!latest) return;
-          const seen = getContactSeen(c);
-          if (!seen || new Date(latest.created_at).getTime() > new Date(seen).getTime()) {
-            newUnread.add(c);
-          }
-        } catch { /* ignore */ }
-      })
-    );
-    setUnreadContacts(newUnread);
-  }, [myName, myPwd]);
-
-  const loadMessages = useCallback(async (contact: string, silent = false) => {
-    if (!silent) setLoadingMessages(true);
+  const fetchLinks = useCallback(async () => {
     try {
-      const data = await fetchMessages(myName, myPwd, myName, contact);
-      const sorted = data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      setMessages(sorted);
-      markContactSeen(contact);
+      const res = await fetch(
+        `${CHAT_BASE}/messages?user=${encodeURIComponent(myName)}&pwd=${encodeURIComponent(myPwd)}&user1=${encodeURIComponent(myName)}&user2=${encodeURIComponent(LINK_RECEIVER)}`
+      );
+      if (!res.ok) throw new Error();
+      const data: LinkMessage[] = await res.json();
+      const sorted = [...data].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setLinks(sorted);
     } catch {
-      if (!silent) toast({ title: "Error", description: "Gagal memuat pesan", variant: "destructive" });
+      toast({ title: "Error", description: "Gagal memuat daftar link", variant: "destructive" });
     } finally {
-      if (!silent) setLoadingMessages(false);
+      setLoadingLinks(false);
     }
   }, [myName, myPwd, toast]);
 
   useEffect(() => {
-    if (contacts.length === 0) return;
-    checkUnread(contacts);
-    unreadPollRef.current = setInterval(() => checkUnread(contacts), 15000);
-    return () => { if (unreadPollRef.current) clearInterval(unreadPollRef.current); };
-  }, [contacts.join(",")]);
+    fetchLinks();
+  }, [fetchLinks]);
 
-  useEffect(() => {
-    if (!selectedContact) return;
-    loadMessages(selectedContact);
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => loadMessages(selectedContact, true), 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [selectedContact, loadMessages]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  function selectContact(name: string) {
-    setSelectedContact(name);
-    setMessages([]);
-    setShowList(false);
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }
-
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!text.trim() || !selectedContact) return;
-    setSending(true);
-    const msg = text.trim();
-    setText("");
+  const loadTable = useCallback(async (url: string) => {
+    setLoadingTable(true);
+    setTableError("");
+    setTableData([]);
     try {
-      await sendMessage(myName, myPwd, myName, selectedContact, msg);
-      await loadMessages(selectedContact, true);
+      const csvUrl = toCSVUrl(url);
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error();
+      const text = await res.text();
+      const parsed = parseCSV(text);
+      if (parsed.length === 0) throw new Error("empty");
+      setTableData(parsed);
     } catch {
-      toast({ title: "Error", description: "Gagal mengirim pesan", variant: "destructive" });
-      setText(msg);
+      setTableError(
+        "Gagal memuat data. Pastikan spreadsheet sudah dipublish ke web:\nFile → Share → Publish to web → lalu pilih CSV."
+      );
     } finally {
-      setSending(false);
+      setLoadingTable(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedLink) loadTable(selectedLink.message);
+  }, [selectedLink, loadTable]);
+
+  async function handleAddLink(e: React.FormEvent) {
+    e.preventDefault();
+    const url = inputUrl.trim();
+    if (!url) return;
+    setAdding(true);
+    try {
+      const res = await fetch(
+        `${CHAT_BASE}/messages?user=${encodeURIComponent(myName)}&pwd=${encodeURIComponent(myPwd)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sender: myName, receiver: LINK_RECEIVER, message: url }),
+        }
+      );
+      if (!res.ok) throw new Error();
+      setInputUrl("");
+      await fetchLinks();
+      toast({ title: "Link disimpan", description: "Spreadsheet berhasil ditambahkan." });
+    } catch {
+      toast({ title: "Error", description: "Gagal menambahkan link", variant: "destructive" });
+    } finally {
+      setAdding(false);
     }
   }
 
-  function getInitial(name: string) {
-    return name.slice(0, 2).toUpperCase();
+  function selectLink(link: LinkMessage) {
+    setSelectedLink(link);
+    setShowDetail(true);
   }
 
-  const lastMsgByContact = (contact: string) => {
-    const msgs = messages.filter(
-      (m) =>
-        (m.sender.toLowerCase() === myName.toLowerCase() && m.receiver.toLowerCase() === contact.toLowerCase()) ||
-        (m.receiver.toLowerCase() === myName.toLowerCase() && m.sender.toLowerCase() === contact.toLowerCase())
-    );
-    return msgs[msgs.length - 1]?.message || "";
-  };
-
-  const groupByDay = (msgs: Message[]) => {
-    const groups: { day: string; messages: Message[] }[] = [];
-    for (const m of msgs) {
-      const day = formatDay(m.created_at);
-      const last = groups[groups.length - 1];
-      if (last && last.day === day) {
-        last.messages.push(m);
-      } else {
-        groups.push({ day, messages: [m] });
-      }
-    }
-    return groups;
-  };
+  const headers = tableData[0] || [];
+  const rows = tableData.slice(1);
 
   return (
     <div className="h-[calc(100vh-10rem)] md:h-[calc(100vh-3rem)] flex gap-0 md:gap-4">
 
-      {/* Contact list */}
-      <div className={`${showList ? "flex" : "hidden"} md:flex flex-col w-full md:w-72 shrink-0`}>
+      {/* Sidebar — link list */}
+      <div className={`${showDetail ? "hidden md:flex" : "flex"} flex-col w-full md:w-72 shrink-0`}>
         <div className="mb-3">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-blue-400" />
-            Chat
+            <Table2 className="w-5 h-5 text-blue-400" />
+            Spreadsheet
           </h1>
-          <p className="text-slate-400 text-sm">Pesan antar admin</p>
+          <p className="text-slate-400 text-sm">Data dari Google Sheets</p>
         </div>
+
         <Card className="bg-slate-800/60 border-slate-700/50 flex-1 overflow-hidden flex flex-col">
-          <div className="p-3 border-b border-slate-700/50">
-            <div className="flex items-center gap-2 text-slate-400 text-xs">
-              <Users className="w-3.5 h-3.5" />
-              <span>{contacts.length} admin tersedia</span>
-            </div>
-          </div>
           <CardContent className="p-0 flex-1 overflow-y-auto">
-            {loadingContacts ? (
+            {loadingLinks ? (
               <div className="flex items-center justify-center h-24">
                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
               </div>
-            ) : contacts.length === 0 ? (
+            ) : links.length === 0 ? (
               <div className="text-center py-10 text-slate-500 text-sm px-4">
-                Belum ada admin lain di sistem
+                Belum ada link.<br />Tambahkan link Google Sheets di bawah.
               </div>
             ) : (
-              contacts.map((contact) => {
-                const hasUnread = unreadContacts.has(contact);
-                const isActive = selectedContact === contact;
-
-                return (
-                  <button
-                    key={contact}
-                    onClick={() => selectContact(contact)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/40 transition-colors border-b border-slate-700/30 text-left ${
-                      isActive ? "bg-blue-600/15 border-l-2 border-l-blue-500" : ""
-                    }`}
-                  >
-                    <div className="relative w-9 h-9 shrink-0">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/30 to-blue-600/20 border border-blue-400/30 flex items-center justify-center">
-                        <span className="text-blue-300 text-xs font-bold">{getInitial(contact)}</span>
-                      </div>
-                      {hasUnread && !isActive && (
-                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-slate-800 animate-pulse" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium capitalize truncate ${hasUnread && !isActive ? "text-white font-semibold" : "text-slate-300"}`}>
-                        {contact}
-                      </p>
-                      {isActive && lastMsgByContact(contact) && (
-                        <p className="text-slate-500 text-xs truncate">{lastMsgByContact(contact)}</p>
-                      )}
-                    </div>
-                    {isActive && <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />}
-                  </button>
-                );
-              })
+              links.map((link) => (
+                <button
+                  key={link.id}
+                  onClick={() => selectLink(link)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/40 transition-colors border-b border-slate-700/30 text-left ${
+                    selectedLink?.id === link.id
+                      ? "bg-blue-600/15 border-l-2 border-l-blue-500"
+                      : ""
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/30 to-green-600/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                    <Table2 className="w-4 h-4 text-emerald-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-300 truncate">
+                      {getLinkName(link.message)}
+                    </p>
+                    <p className="text-slate-500 text-xs">{formatDate(link.created_at)}</p>
+                  </div>
+                </button>
+              ))
             )}
           </CardContent>
+
+          {/* Input tambah link */}
+          <form
+            onSubmit={handleAddLink}
+            className="flex items-center gap-2 p-3 border-t border-slate-700/50 shrink-0"
+          >
+            <Input
+              value={inputUrl}
+              onChange={(e) => setInputUrl(e.target.value)}
+              placeholder="Paste link Google Sheets…"
+              className="bg-slate-700/60 border-slate-600 text-white text-sm flex-1 h-9 placeholder:text-slate-500"
+              disabled={adding}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!inputUrl.trim() || adding}
+              className="bg-blue-600 hover:bg-blue-500 text-white h-9 w-9 p-0 shrink-0"
+            >
+              {adding ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </form>
         </Card>
       </div>
 
-      {/* Chat area */}
-      <div className={`${!showList ? "flex" : "hidden"} md:flex flex-col flex-1 min-w-0`}>
-        {!selectedContact ? (
+      {/* Main area — table */}
+      <div className={`${showDetail ? "flex" : "hidden md:flex"} flex-col flex-1 min-w-0`}>
+        {!selectedLink ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-center mb-4">
-              <MessageCircle className="w-8 h-8 text-slate-600" />
+              <Table2 className="w-8 h-8 text-slate-600" />
             </div>
-            <p className="text-slate-500 text-sm">Pilih admin untuk mulai chat</p>
+            <p className="text-slate-500 text-sm">Pilih spreadsheet untuk melihat data</p>
           </div>
         ) : (
           <Card className="flex-1 bg-slate-800/60 border-slate-700/50 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/50 shrink-0">
               <button
-                onClick={() => setShowList(true)}
+                onClick={() => setShowDetail(false)}
                 className="md:hidden text-slate-400 hover:text-white mr-1"
               >
-                <ArrowLeft className="w-4 h-4" />
+                ←
               </button>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/30 to-blue-600/20 border border-blue-400/30 flex items-center justify-center">
-                <span className="text-blue-300 text-xs font-bold">{getInitial(selectedContact)}</span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/30 to-green-600/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                <Table2 className="w-4 h-4 text-emerald-300" />
               </div>
-              <div>
-                <p className="text-white text-sm font-semibold capitalize">{selectedContact}</p>
-                <p className="text-slate-500 text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                  Live · update tiap 3 detik
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-semibold">
+                  {getLinkName(selectedLink.message)}
                 </p>
+                <a
+                  href={selectedLink.message}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 text-xs flex items-center gap-1 hover:underline truncate"
+                >
+                  <LinkIcon className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{selectedLink.message}</span>
+                </a>
               </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => loadTable(selectedLink.message)}
+                disabled={loadingTable}
+                className="text-slate-400 hover:text-white shrink-0"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingTable ? "animate-spin" : ""}`} />
+              </Button>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {loadingMessages ? (
+            {/* Table content */}
+            <div className="flex-1 overflow-auto">
+              {loadingTable ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
                 </div>
-              ) : messages.length === 0 ? (
+              ) : tableError ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                  <AlertCircle className="w-8 h-8 text-red-400" />
+                  <p className="text-slate-400 text-sm whitespace-pre-line">{tableError}</p>
+                </div>
+              ) : tableData.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-                  Belum ada pesan. Mulai percakapan!
+                  Tidak ada data
                 </div>
               ) : (
-                groupByDay(messages).map(({ day, messages: dayMsgs }) => (
-                  <div key={day}>
-                    <div className="flex items-center gap-2 my-3">
-                      <div className="flex-1 h-px bg-slate-700/60" />
-                      <span className="text-slate-500 text-xs px-2">{day}</span>
-                      <div className="flex-1 h-px bg-slate-700/60" />
-                    </div>
-                    <div className="space-y-1.5">
-                      {dayMsgs.map((m) => {
-                        const isMe = m.sender.toLowerCase() === myName.toLowerCase();
-                        return (
-                          <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 ${
-                              isMe
-                                ? "bg-blue-600 text-white rounded-br-sm"
-                                : "bg-slate-700/80 text-slate-100 rounded-bl-sm"
-                            }`}>
-                              <p className="text-sm leading-snug break-words">{m.message}</p>
-                              <p className={`text-[10px] mt-0.5 ${isMe ? "text-blue-200/70" : "text-slate-500"} text-right`}>
-                                {formatTime(m.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-900/90 backdrop-blur-sm">
+                      <th className="text-left text-slate-400 font-semibold px-4 py-2.5 border-b border-slate-700/60 text-xs w-10">
+                        #
+                      </th>
+                      {headers.map((h, i) => (
+                        <th
+                          key={i}
+                          className="text-left text-slate-300 font-semibold px-4 py-2.5 border-b border-slate-700/60 whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, ri) => (
+                      <tr
+                        key={ri}
+                        className={`border-b border-slate-700/30 hover:bg-slate-700/30 transition-colors ${
+                          ri % 2 === 0 ? "" : "bg-slate-800/30"
+                        }`}
+                      >
+                        <td className="px-4 py-2 text-slate-600 text-xs">{ri + 1}</td>
+                        {headers.map((_, ci) => (
+                          <td key={ci} className="px-4 py-2 text-slate-300 whitespace-nowrap">
+                            {row[ci] ?? ""}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-              <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
-            <form onSubmit={handleSend} className="flex items-center gap-2 p-3 border-t border-slate-700/50 shrink-0">
-              <Input
-                ref={inputRef}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={`Kirim pesan ke ${selectedContact}...`}
-                className="bg-slate-700/60 border-slate-600 text-white text-sm flex-1 h-9 placeholder:text-slate-500"
-                disabled={sending}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!text.trim() || sending}
-                className="bg-blue-600 hover:bg-blue-500 text-white h-9 w-9 p-0 shrink-0"
-              >
-                {sending
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <Send className="w-4 h-4" />
-                }
-              </Button>
-            </form>
+            {/* Row count */}
+            {!loadingTable && !tableError && rows.length > 0 && (
+              <div className="px-4 py-2 border-t border-slate-700/50 text-slate-500 text-xs shrink-0">
+                {rows.length} baris · {headers.length} kolom
+              </div>
+            )}
           </Card>
         )}
       </div>
