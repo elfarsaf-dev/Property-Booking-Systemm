@@ -15,7 +15,7 @@ const NAV_BASE = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/katalog", label: "Katalog", icon: Building2 },
-  { href: "/chat", label: "Chat", icon: MessageCircle, chat: true },
+  { href: "/chat", label: "Info", icon: MessageCircle, chat: true },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
