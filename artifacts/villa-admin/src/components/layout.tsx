@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { logout, getAdminName, isSuperAdmin, getReservations } from "@/services/api";
 import { useUnreadCount } from "@/hooks/use-unread";
 import {
@@ -9,6 +9,8 @@ import {
   MessageCircle,
   User,
   LogOut,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 
 const NAV_BASE = [
@@ -22,6 +24,7 @@ const NAV_BASE = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [contacts, setContacts] = useState<string[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const adminName = getAdminName();
   const superAdmin = isSuperAdmin();
   const unread = useUnreadCount(contacts);
@@ -37,6 +40,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {});
   }, [adminName]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleFullscreen]);
 
   function handleLogout() {
     logout();
@@ -90,7 +118,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-slate-800">
+        <div className="p-3 border-t border-slate-800 space-y-1">
+          <button
+            onClick={toggleFullscreen}
+            title="Fullscreen (F11)"
+            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isFullscreen ? "Keluar Fullscreen" : "Fullscreen"}
+          </button>
           <button
             onClick={handleLogout}
             data-testid="button-logout"
@@ -116,9 +152,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </span>
           )}
         </div>
-        <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 transition-colors">
-          <LogOut className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={toggleFullscreen} title="Fullscreen (F11)" className="text-slate-400 hover:text-white transition-colors">
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          </button>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 transition-colors">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile bottom navbar — glassmorphism */}
