@@ -17,15 +17,18 @@ interface LinkMessage {
   created_at: string;
 }
 
-function toCSVUrl(url: string): string {
+function toCSVUrls(url: string): string[] {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (match) {
     const id = match[1];
     const gidMatch = url.match(/[?&]gid=(\d+)/);
     const gid = gidMatch ? `&gid=${gidMatch[1]}` : "";
-    return `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv${gid}`;
+    return [
+      `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid}`,
+      `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv${gid}`,
+    ];
   }
-  return url;
+  return [url];
 }
 
 function parseCSV(text: string): string[][] {
@@ -110,21 +113,27 @@ export default function ChatPage() {
     setLoadingTable(true);
     setTableError("");
     setTableData([]);
-    try {
-      const csvUrl = toCSVUrl(url);
-      const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error();
-      const text = await res.text();
-      const parsed = parseCSV(text);
-      if (parsed.length === 0) throw new Error("empty");
-      setTableData(parsed);
-    } catch {
-      setTableError(
-        "Gagal memuat data. Pastikan spreadsheet sudah dipublish ke web:\nFile → Share → Publish to web → lalu pilih CSV."
-      );
-    } finally {
-      setLoadingTable(false);
+    const urls = toCSVUrls(url);
+    let lastError = "";
+    for (const csvUrl of urls) {
+      try {
+        const res = await fetch(csvUrl);
+        if (!res.ok) continue;
+        const text = await res.text();
+        if (text.trim().startsWith("<!")) continue;
+        const parsed = parseCSV(text);
+        if (parsed.length === 0) continue;
+        setTableData(parsed);
+        setLoadingTable(false);
+        return;
+      } catch {
+        lastError = csvUrl;
+      }
     }
+    setTableError(
+      "Gagal memuat data. Pastikan spreadsheet di-share ke 'Anyone with the link' atau sudah dipublish:\nFile → Share → Publish to web."
+    );
+    setLoadingTable(false);
   }, []);
 
   useEffect(() => {
