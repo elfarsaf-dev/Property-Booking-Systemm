@@ -54,14 +54,22 @@ function parseCSV(text: string): string[][] {
     .filter((row) => row.some((cell) => cell !== ""));
 }
 
-function getLinkName(url: string): string {
+const SEP = "||";
+
+function parseMessage(msg: string): { title: string; url: string } {
+  const idx = msg.indexOf(SEP);
+  if (idx !== -1) {
+    return { title: msg.slice(0, idx).trim(), url: msg.slice(idx + SEP.length).trim() };
+  }
+  return { title: "", url: msg.trim() };
+}
+
+function getLinkName(msg: string): string {
+  const { title, url } = parseMessage(msg);
+  if (title) return title;
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (match) return `Sheet · ${match[1].slice(0, 10)}…`;
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url.slice(0, 30) + "…";
-  }
+  try { return new URL(url).hostname; } catch { return url.slice(0, 30) + "…"; }
 }
 
 function formatDate(iso: string) {
@@ -84,6 +92,7 @@ export default function ChatPage() {
   const [loadingTable, setLoadingTable] = useState(false);
   const [tableError, setTableError] = useState("");
   const [inputUrl, setInputUrl] = useState("");
+  const [inputTitle, setInputTitle] = useState("");
   const [adding, setAdding] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -137,13 +146,18 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedLink) loadTable(selectedLink.message);
+    if (selectedLink) {
+      const { url } = parseMessage(selectedLink.message);
+      loadTable(url);
+    }
   }, [selectedLink, loadTable]);
 
   async function handleAddLink(e: React.FormEvent) {
     e.preventDefault();
     const url = inputUrl.trim();
+    const title = inputTitle.trim();
     if (!url) return;
+    const stored = title ? `${title}${SEP}${url}` : url;
     setAdding(true);
     try {
       const res = await fetch(
@@ -151,11 +165,12 @@ export default function ChatPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sender: LINK_CHANNEL, receiver: LINK_CHANNEL, message: url }),
+          body: JSON.stringify({ sender: LINK_CHANNEL, receiver: LINK_CHANNEL, message: stored }),
         }
       );
       if (!res.ok) throw new Error();
       setInputUrl("");
+      setInputTitle("");
       await fetchLinks();
       toast({ title: "Link disimpan", description: "Spreadsheet berhasil ditambahkan." });
     } catch {
@@ -224,27 +239,36 @@ export default function ChatPage() {
           {/* Input tambah link */}
           <form
             onSubmit={handleAddLink}
-            className="flex items-center gap-2 p-3 border-t border-slate-700/50 shrink-0"
+            className="flex flex-col gap-2 p-3 border-t border-slate-700/50 shrink-0"
           >
             <Input
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Paste link Google Sheets…"
-              className="bg-slate-700/60 border-slate-600 text-white text-sm flex-1 h-9 placeholder:text-slate-500"
+              value={inputTitle}
+              onChange={(e) => setInputTitle(e.target.value)}
+              placeholder="Judul (contoh: Data Booking Juni)"
+              className="bg-slate-700/60 border-slate-600 text-white text-sm h-9 placeholder:text-slate-500"
               disabled={adding}
             />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!inputUrl.trim() || adding}
-              className="bg-blue-600 hover:bg-blue-500 text-white h-9 w-9 p-0 shrink-0"
-            >
-              {adding ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Input
+                value={inputUrl}
+                onChange={(e) => setInputUrl(e.target.value)}
+                placeholder="Paste link Google Sheets…"
+                className="bg-slate-700/60 border-slate-600 text-white text-sm flex-1 h-9 placeholder:text-slate-500"
+                disabled={adding}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!inputUrl.trim() || adding}
+                className="bg-blue-600 hover:bg-blue-500 text-white h-9 w-9 p-0 shrink-0"
+              >
+                {adding ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </form>
         </Card>
       </div>
@@ -276,19 +300,19 @@ export default function ChatPage() {
                   {getLinkName(selectedLink.message)}
                 </p>
                 <a
-                  href={selectedLink.message}
+                  href={parseMessage(selectedLink.message).url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-400 text-xs flex items-center gap-1 hover:underline truncate"
                 >
                   <LinkIcon className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{selectedLink.message}</span>
+                  <span className="truncate">{parseMessage(selectedLink.message).url}</span>
                 </a>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => loadTable(selectedLink.message)}
+                onClick={() => loadTable(parseMessage(selectedLink.message).url)}
                 disabled={loadingTable}
                 className="text-slate-400 hover:text-white shrink-0"
               >
