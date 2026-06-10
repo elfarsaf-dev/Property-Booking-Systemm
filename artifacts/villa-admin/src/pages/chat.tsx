@@ -7,7 +7,7 @@ import { Send, Loader2, Table2, LinkIcon, RefreshCw, AlertCircle } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 
 const CHAT_BASE = "https://villa.cocspedsafliz.workers.dev";
-const LINK_RECEIVER = "spreadsheets";
+const LINK_CHANNEL = "spreadsheets";
 
 interface LinkMessage {
   id: string;
@@ -90,7 +90,7 @@ export default function ChatPage() {
   const fetchLinks = useCallback(async () => {
     try {
       const res = await fetch(
-        `${CHAT_BASE}/messages?user=${encodeURIComponent(myName)}&pwd=${encodeURIComponent(myPwd)}&user1=${encodeURIComponent(myName)}&user2=${encodeURIComponent(LINK_RECEIVER)}`
+        `${CHAT_BASE}/messages?user=${encodeURIComponent(myName)}&pwd=${encodeURIComponent(myPwd)}&user1=${encodeURIComponent(LINK_CHANNEL)}&user2=${encodeURIComponent(LINK_CHANNEL)}`
       );
       if (!res.ok) throw new Error();
       const data: LinkMessage[] = await res.json();
@@ -151,7 +151,7 @@ export default function ChatPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sender: myName, receiver: LINK_RECEIVER, message: url }),
+          body: JSON.stringify({ sender: LINK_CHANNEL, receiver: LINK_CHANNEL, message: url }),
         }
       );
       if (!res.ok) throw new Error();
