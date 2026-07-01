@@ -372,17 +372,24 @@ export async function exportToXLSX(
   const ws1 = wb.addWorksheet(sheet1Name);
   buildStyledSheet(ws1, data, `Laporan Reservasi — ${period}`, adminName, period, true);
 
-  // Track used sheet names to avoid duplicates (ExcelJS throws on duplicate names)
-  const usedSheetNames = new Set<string>([sheet1Name]);
+  // Track used sheet names to avoid duplicates — compare case-insensitively
+  // because Excel treats sheet names as case-insensitive (ExcelJS throws on collision)
+  const usedSheetNamesLower = new Set<string>([sheet1Name.toLowerCase()]);
   function uniqueSheetName(raw: string): string {
     const base = raw.replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31);
-    if (!usedSheetNames.has(base)) { usedSheetNames.add(base); return base; }
+    if (!usedSheetNamesLower.has(base.toLowerCase())) {
+      usedSheetNamesLower.add(base.toLowerCase());
+      return base;
+    }
     for (let i = 2; i <= 99; i++) {
       const suffix = ` (${i})`;
       const candidate = base.slice(0, 31 - suffix.length) + suffix;
-      if (!usedSheetNames.has(candidate)) { usedSheetNames.add(candidate); return candidate; }
+      if (!usedSheetNamesLower.has(candidate.toLowerCase())) {
+        usedSheetNamesLower.add(candidate.toLowerCase());
+        return candidate;
+      }
     }
-    return base + Math.random().toString(36).slice(2, 5);
+    return base.slice(0, 28) + Math.random().toString(36).slice(2, 5);
   }
 
   // ── Sheet 2+: One sheet per property name (Properti only) ───────
@@ -552,12 +559,32 @@ export async function exportCatalogToXLSX(
   }
 
   // Sheet 1: All items
-  const ws1 = wb.addWorksheet(`Semua ${label}`);
+  const firstSheetName = `Semua ${label}`.slice(0, 31);
+  const ws1 = wb.addWorksheet(firstSheetName);
   buildCatalogSheet(ws1, items, endpoint, `${label} — Semua Kategori (${now})`);
+
+  // Track used names case-insensitively (Excel is case-insensitive for sheet names)
+  const usedCatSheetNames = new Set<string>([firstSheetName.toLowerCase()]);
+  function uniqueCatSheetName(raw: string): string {
+    const base = raw.replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31);
+    if (!usedCatSheetNames.has(base.toLowerCase())) {
+      usedCatSheetNames.add(base.toLowerCase());
+      return base;
+    }
+    for (let i = 2; i <= 99; i++) {
+      const suffix = ` (${i})`;
+      const candidate = base.slice(0, 31 - suffix.length) + suffix;
+      if (!usedCatSheetNames.has(candidate.toLowerCase())) {
+        usedCatSheetNames.add(candidate.toLowerCase());
+        return candidate;
+      }
+    }
+    return base.slice(0, 28) + Math.random().toString(36).slice(2, 5);
+  }
 
   // Sheet per category
   for (const [catName, catItems] of catMap) {
-    const sheetName = catName.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+    const sheetName = uniqueCatSheetName(catName);
     const ws = wb.addWorksheet(sheetName);
     buildCatalogSheet(ws, catItems, endpoint, `${label} — ${catName} (${now})`);
   }
