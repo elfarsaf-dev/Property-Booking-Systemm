@@ -17,18 +17,52 @@ interface LinkMessage {
   created_at: string;
 }
 
-function toCSVUrls(url: string): string[] {
+function extractSpreadsheetId(url: string): string | null {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (match) {
-    const id = match[1];
-    const gidMatch = url.match(/[?&]gid=(\d+)/);
-    const gid = gidMatch ? `&gid=${gidMatch[1]}` : "";
+  return match ? match[1] : null;
+}
+
+function toCSVUrls(url: string, sheetName?: string): string[] {
+  const id = extractSpreadsheetId(url);
+  if (id) {
+    const sheetParam = sheetName
+      ? `&sheet=${encodeURIComponent(sheetName)}`
+      : (() => {
+          const gidMatch = url.match(/[?&]gid=(\d+)/);
+          return gidMatch ? `&gid=${gidMatch[1]}` : "";
+        })();
     return [
-      `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid}`,
-      `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv${gid}`,
+      `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${sheetParam}`,
+      `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv${sheetParam}`,
     ];
   }
   return [url];
+}
+
+async function fetchSheetNames(spreadsheetId: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=__invalid__xyz__`
+    );
+    const text = await res.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+    if (!match) return [];
+    const json = JSON.parse(match[1]);
+    if (json.status === "error") {
+      for (const err of (json.errors ?? [])) {
+        const namesMatch = (err.message ?? "").match(/Valid sheet names are:\s*(.+)/i);
+        if (namesMatch) {
+          return namesMatch[1].split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+      }
+    }
+    if (json.status === "ok") {
+      return [];
+    }
+  } catch {
+    // ignore
+  }
+  return [];
 }
 
 function parseCSV(text: string): string[][] {
@@ -88,6 +122,11 @@ export default function ChatPage() {
   const [links, setLinks] = useState<LinkMessage[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(true);
   const [selectedLink, setSelectedLink] = useState<LinkMessage | null>(null);
+
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [activeSheet, setActiveSheet] = useState<string | null>(null);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+
   const [tableData, setTableData] = useState<string[][]>([]);
   const [loadingTable, setLoadingTable] = useState(false);
   const [tableError, setTableError] = useState("");
@@ -118,12 +157,11 @@ export default function ChatPage() {
     fetchLinks();
   }, [fetchLinks]);
 
-  const loadTable = useCallback(async (url: string) => {
+  const loadTable = useCallback(async (url: string, sheetName?: string) => {
     setLoadingTable(true);
     setTableError("");
     setTableData([]);
-    const urls = toCSVUrls(url);
-    let lastError = "";
+    const urls = toCSVUrls(url, sheetName);
     for (const csvUrl of urls) {
       try {
         const res = await fetch(csvUrl);
@@ -136,7 +174,7 @@ export default function ChatPage() {
         setLoadingTable(false);
         return;
       } catch {
-        lastError = csvUrl;
+        // try next url
       }
     }
     setTableError(
@@ -145,12 +183,40 @@ export default function ChatPage() {
     setLoadingTable(false);
   }, []);
 
+  const loadSheetsAndData = useCallback(async (link: LinkMessage) => {
+    const { url } = parseMessage(link.message);
+    const id = extractSpreadsheetId(url);
+
+    setSheetNames([]);
+    setActiveSheet(null);
+
+    if (id) {
+      setLoadingSheets(true);
+      const names = await fetchSheetNames(id);
+      setLoadingSheets(false);
+      if (names.length > 0) {
+        setSheetNames(names);
+        setActiveSheet(names[0]);
+        loadTable(url, names[0]);
+        return;
+      }
+    }
+
+    loadTable(url);
+  }, [loadTable]);
+
   useEffect(() => {
     if (selectedLink) {
-      const { url } = parseMessage(selectedLink.message);
-      loadTable(url);
+      loadSheetsAndData(selectedLink);
     }
-  }, [selectedLink, loadTable]);
+  }, [selectedLink, loadSheetsAndData]);
+
+  function handleTabClick(name: string) {
+    if (!selectedLink || name === activeSheet) return;
+    setActiveSheet(name);
+    const { url } = parseMessage(selectedLink.message);
+    loadTable(url, name);
+  }
 
   async function handleAddLink(e: React.FormEvent) {
     e.preventDefault();
@@ -312,13 +378,39 @@ export default function ChatPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => loadTable(parseMessage(selectedLink.message).url)}
-                disabled={loadingTable}
+                onClick={() => loadSheetsAndData(selectedLink)}
+                disabled={loadingTable || loadingSheets}
                 className="text-slate-400 hover:text-white shrink-0"
               >
-                <RefreshCw className={`w-4 h-4 ${loadingTable ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-4 h-4 ${(loadingTable || loadingSheets) ? "animate-spin" : ""}`} />
               </Button>
             </div>
+
+            {/* Sheet tabs */}
+            {(loadingSheets || sheetNames.length > 0) && (
+              <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-slate-700/50 overflow-x-auto shrink-0">
+                {loadingSheets ? (
+                  <div className="flex items-center gap-2 pb-2 text-slate-500 text-xs">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Memuat tab…
+                  </div>
+                ) : (
+                  sheetNames.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => handleTabClick(name)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-t-md whitespace-nowrap border-b-2 transition-colors ${
+                        activeSheet === name
+                          ? "text-blue-400 border-blue-400 bg-blue-500/10"
+                          : "text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-700/40"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Table content */}
             <div className="flex-1 overflow-auto">
@@ -376,6 +468,7 @@ export default function ChatPage() {
             {/* Row count */}
             {!loadingTable && !tableError && rows.length > 0 && (
               <div className="px-4 py-2 border-t border-slate-700/50 text-slate-500 text-xs shrink-0">
+                {activeSheet && <span className="text-slate-600 mr-2">Tab: <span className="text-slate-400">{activeSheet}</span> ·</span>}
                 {rows.length} baris · {headers.length} kolom
               </div>
             )}
