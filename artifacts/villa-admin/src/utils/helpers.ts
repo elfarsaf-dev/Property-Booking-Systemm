@@ -393,14 +393,21 @@ export async function exportToXLSX(
   }
 
   // ── Sheet 2+: One sheet per property name (Properti only) ───────
+  // Group case-insensitively so "Scinic glamping" & "Scinic Glamping" → 1 sheet
   const propertiRows = data.filter((r) => getBookingCategoryLabel(r.property_id) === "Properti");
-  const propNameMap = new Map<string, Reservation[]>();
+  const propNameMap = new Map<string, Reservation[]>();     // key = lowercased
+  const propDisplayName = new Map<string, string>();        // key = lowercased → first seen display name
   for (const r of propertiRows) {
-    const key = r.property_name?.trim() || "Tanpa Properti";
-    if (!propNameMap.has(key)) propNameMap.set(key, []);
+    const display = r.property_name?.trim() || "Tanpa Properti";
+    const key = display.toLowerCase();
+    if (!propNameMap.has(key)) {
+      propNameMap.set(key, []);
+      propDisplayName.set(key, display);
+    }
     propNameMap.get(key)!.push(r);
   }
-  for (const [propName, propRows] of propNameMap) {
+  for (const [key, propRows] of propNameMap) {
+    const propName = propDisplayName.get(key)!;
     const sheetName = uniqueSheetName(propName);
     const ws = wb.addWorksheet(sheetName);
     buildStyledSheet(ws, propRows, `${propName} — ${period}`, adminName, period, false);
@@ -550,11 +557,16 @@ export async function exportCatalogToXLSX(
   wb.creator = "E-Rekap";
   wb.created = new Date();
 
-  // Group by category
-  const catMap = new Map<string, CatalogItem[]>();
+  // Group by category case-insensitively so "glamping" & "Glamping" → 1 sheet
+  const catMap = new Map<string, CatalogItem[]>();       // key = lowercased
+  const catDisplayName = new Map<string, string>();      // key = lowercased → first seen display name
   for (const item of items) {
-    const key = item.category?.trim() || "Tanpa Kategori";
-    if (!catMap.has(key)) catMap.set(key, []);
+    const display = item.category?.trim() || "Tanpa Kategori";
+    const key = display.toLowerCase();
+    if (!catMap.has(key)) {
+      catMap.set(key, []);
+      catDisplayName.set(key, display);
+    }
     catMap.get(key)!.push(item);
   }
 
@@ -583,7 +595,8 @@ export async function exportCatalogToXLSX(
   }
 
   // Sheet per category
-  for (const [catName, catItems] of catMap) {
+  for (const [key, catItems] of catMap) {
+    const catName = catDisplayName.get(key)!;
     const sheetName = uniqueCatSheetName(catName);
     const ws = wb.addWorksheet(sheetName);
     buildCatalogSheet(ws, catItems, endpoint, `${label} — ${catName} (${now})`);
