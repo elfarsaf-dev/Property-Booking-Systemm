@@ -257,7 +257,15 @@ export default function BookingsPage() {
   }
 
   async function handleExportXLSX() {
-    await exportToXLSX(filtered, adminName, filterMonth, filterYear);
+    if (!filtered.length) {
+      toast({ title: "Tidak ada data", description: "Tidak ada reservasi untuk diekspor pada filter ini.", variant: "destructive" });
+      return;
+    }
+    try {
+      await exportToXLSX(filtered, adminName, filterMonth, filterYear);
+    } catch (err) {
+      toast({ title: "Export gagal", description: err instanceof Error ? err.message : "Terjadi kesalahan saat membuat file Excel.", variant: "destructive" });
+    }
   }
 
   function handleExportPDF() {

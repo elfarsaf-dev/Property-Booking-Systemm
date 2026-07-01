@@ -372,6 +372,19 @@ export async function exportToXLSX(
   const ws1 = wb.addWorksheet(sheet1Name);
   buildStyledSheet(ws1, data, `Laporan Reservasi — ${period}`, adminName, period, true);
 
+  // Track used sheet names to avoid duplicates (ExcelJS throws on duplicate names)
+  const usedSheetNames = new Set<string>([sheet1Name]);
+  function uniqueSheetName(raw: string): string {
+    const base = raw.replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31);
+    if (!usedSheetNames.has(base)) { usedSheetNames.add(base); return base; }
+    for (let i = 2; i <= 99; i++) {
+      const suffix = ` (${i})`;
+      const candidate = base.slice(0, 31 - suffix.length) + suffix;
+      if (!usedSheetNames.has(candidate)) { usedSheetNames.add(candidate); return candidate; }
+    }
+    return base + Math.random().toString(36).slice(2, 5);
+  }
+
   // ── Sheet 2+: One sheet per property name (Properti only) ───────
   const propertiRows = data.filter((r) => getBookingCategoryLabel(r.property_id) === "Properti");
   const propNameMap = new Map<string, Reservation[]>();
@@ -381,7 +394,7 @@ export async function exportToXLSX(
     propNameMap.get(key)!.push(r);
   }
   for (const [propName, propRows] of propNameMap) {
-    const sheetName = propName.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+    const sheetName = uniqueSheetName(propName);
     const ws = wb.addWorksheet(sheetName);
     buildStyledSheet(ws, propRows, `${propName} — ${period}`, adminName, period, false);
   }
@@ -390,7 +403,7 @@ export async function exportToXLSX(
   for (const cat of ["Trips", "Catering", "Outbound"] as const) {
     const catRows = data.filter((r) => getBookingCategoryLabel(r.property_id) === cat);
     if (!catRows.length) continue;
-    const ws = wb.addWorksheet(cat);
+    const ws = wb.addWorksheet(uniqueSheetName(cat));
     buildStyledSheet(ws, catRows, `${cat} — ${period}`, adminName, period, true);
   }
 
