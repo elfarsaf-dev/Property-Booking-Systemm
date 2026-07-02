@@ -395,6 +395,20 @@ export default function DashboardPage() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
+                <div className="flex flex-col gap-1 mt-2">
+                  {pieDisplayData.map((d, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                      />
+                      <span className="text-slate-400 text-xs truncate flex-1" title={d.name}>
+                        {d.name.length > 20 ? d.name.slice(0, 20) + "…" : d.name}
+                      </span>
+                      <span className="text-slate-300 text-xs font-medium shrink-0">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </CardContent>
