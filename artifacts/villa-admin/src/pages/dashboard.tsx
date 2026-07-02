@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from "recharts";
 import {
   CalendarCheck, TrendingUp, Wallet, XCircle, Loader2,
@@ -216,6 +216,14 @@ export default function DashboardPage() {
       .map(([name, value]) => ({ name, value }));
   }, [filtered]);
 
+  const PIE_MAX = 8;
+  const pieDisplayData = useMemo(() => {
+    if (pieData.length <= PIE_MAX) return pieData;
+    const top = pieData.slice(0, PIE_MAX);
+    const rest = pieData.slice(PIE_MAX).reduce((s, d) => s + d.value, 0);
+    return [...top, { name: `Lainnya (${pieData.length - PIE_MAX})`, value: rest }];
+  }, [pieData]);
+
   /* ─────────────────────────────────────────── */
 
   if (loading) {
@@ -320,32 +328,42 @@ export default function DashboardPage() {
             {lineData.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Belum ada data</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={lineData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="tanggal" tick={{ fill: "#64748b", fontSize: 10 }} />
-                  <YAxis
-                    tick={{ fill: "#64748b", fontSize: 10 }}
-                    tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)}
-                    width={42}
-                  />
-                  <Tooltip
-                    contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                    labelStyle={{ color: "#94a3b8" }}
-                    formatter={(v: number, name: string) => {
-                      const label = name === "omset" ? "Omset" : name === "pending" ? "Pending" : "Cancel";
-                      return [formatRupiah(v), label];
-                    }}
-                  />
-                  <Legend
-                    formatter={(value) => value === "omset" ? "Omset" : value === "pending" ? "Pending" : "Cancel"}
-                    wrapperStyle={{ fontSize: 11, color: "#94a3b8" }}
-                  />
-                  <Line type="monotone" dataKey="omset"   stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="pending" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="cancel"  stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <div className="flex items-center gap-4 mb-2 px-1">
+                  {[
+                    { key: "omset",   label: "Omset",   color: "#22c55e" },
+                    { key: "pending", label: "Pending", color: "#f97316" },
+                    { key: "cancel",  label: "Cancel",  color: "#ef4444" },
+                  ].map(({ key, label, color }) => (
+                    <span key={key} className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <span style={{ background: color }} className="inline-block w-3 h-0.5 rounded-full" />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={lineData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="tanggal" tick={{ fill: "#64748b", fontSize: 10 }} />
+                    <YAxis
+                      tick={{ fill: "#64748b", fontSize: 10 }}
+                      tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}jt` : v >= 1000 ? `${(v / 1000).toFixed(0)}rb` : String(v)}
+                      width={42}
+                    />
+                    <Tooltip
+                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: "#94a3b8" }}
+                      formatter={(v: number, name: string) => {
+                        const label = name === "omset" ? "Omset" : name === "pending" ? "Pending" : "Cancel";
+                        return [formatRupiah(v), label];
+                      }}
+                    />
+                    <Line type="monotone" dataKey="omset"   stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="pending" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="cancel"  stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
             )}
           </CardContent>
         </Card>
@@ -355,33 +373,43 @@ export default function DashboardPage() {
             <CardTitle className="text-white text-sm font-semibold">Booking per Properti</CardTitle>
           </CardHeader>
           <CardContent>
-            {pieData.length === 0 ? (
+            {pieDisplayData.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-8">Belum ada data</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%" cy="42%"
-                    innerRadius={45} outerRadius={72}
-                    dataKey="value" paddingAngle={2}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend formatter={(value) => (
-                    <span style={{ color: "#94a3b8", fontSize: 10 }}>
-                      {value.length > 18 ? value.slice(0, 18) + "…" : value}
-                    </span>
-                  )} />
-                  <Tooltip
-                    contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
-                    labelStyle={{ color: "#94a3b8" }}
-                    formatter={(v: number, name: string) => [`${v} booking`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={pieDisplayData}
+                      cx="50%" cy="50%"
+                      innerRadius={42} outerRadius={68}
+                      dataKey="value" paddingAngle={2}
+                    >
+                      {pieDisplayData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                      formatter={(v: number, name: string) => [`${v} booking`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 max-h-36 overflow-y-auto pr-1">
+                  {pieDisplayData.map((d, i) => (
+                    <div key={i} className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                      />
+                      <span className="text-slate-400 text-xs truncate" title={d.name}>
+                        {d.name.length > 16 ? d.name.slice(0, 16) + "…" : d.name}
+                      </span>
+                      <span className="text-slate-500 text-xs ml-auto shrink-0">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
