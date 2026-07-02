@@ -692,12 +692,13 @@ export function exportToPDF(
           <td style="text-align:right;font-weight:600;color:${sisa > 0 ? "#dc2626" : "#16a34a"}">${formatRupiah(sisa)}</td>
           <td style="text-align:center">${statusBadge(r.status)}</td>
           <td style="color:#94a3b8;font-size:8px">${r.admin_name || "-"}</td>
+          <td style="color:#475569;font-size:8px;max-width:120px;white-space:normal;word-break:break-word">${r.note || "-"}</td>
         </tr>`;
     }).join("");
 
     return `
       <tr>
-        <td colspan="11" style="background:${pc.bg};border-left:4px solid ${pc.border};border-top:2px solid ${pc.border}22;border-bottom:1px solid ${pc.border}44;padding:6px 10px;color:${pc.text};font-weight:800;font-size:10px">
+        <td colspan="12" style="background:${pc.bg};border-left:4px solid ${pc.border};border-top:2px solid ${pc.border}22;border-bottom:1px solid ${pc.border}44;padding:6px 10px;color:${pc.text};font-weight:800;font-size:10px">
           ${(()=>{const c=getBookingCategoryLabel(propRows[0].property_id);return c==="Properti"?"🏠":c==="Trips"?"✈️":c==="Catering"?"🍽️":"🏃";})() } ${propName}
           <span style="font-weight:400;font-size:8.5px;opacity:0.8;margin-left:8px">${propRows.length} booking · ${subMalam} malam</span>
         </td>
@@ -710,9 +711,9 @@ export function exportToPDF(
         <td style="text-align:right;font-weight:700;font-size:8.5px;color:${pc.text};border-top:1px solid ${pc.border}55">${formatRupiah(subHarga)}</td>
         <td style="text-align:right;font-weight:700;font-size:8.5px;color:#059669;border-top:1px solid ${pc.border}55">${formatRupiah(subDP)}</td>
         <td style="text-align:right;font-weight:700;font-size:8.5px;color:${subSisa > 0 ? "#dc2626" : "#16a34a"};border-top:1px solid ${pc.border}55">${formatRupiah(subSisa)}</td>
-        <td colspan="2" style="border-top:1px solid ${pc.border}55"></td>
+        <td colspan="3" style="border-top:1px solid ${pc.border}55"></td>
       </tr>
-      <tr><td colspan="11" style="height:6px;background:#f8fafc;border:none"></td></tr>`;
+      <tr><td colspan="12" style="height:6px;background:#f8fafc;border:none"></td></tr>`;
   }).join("");
 
   const html = `<!DOCTYPE html>
@@ -798,6 +799,7 @@ td{padding:5px 7px;font-size:8.5px;vertical-align:middle;border-bottom:1px solid
     <th style="text-align:right">Sisa</th>
     <th style="text-align:center;width:72px">Status</th>
     <th style="width:52px">Admin</th>
+    <th style="min-width:80px">Catatan</th>
   </tr></thead>
   <tbody>${bodyRows}</tbody>
   <tr class="grand-total">
@@ -807,7 +809,7 @@ td{padding:5px 7px;font-size:8.5px;vertical-align:middle;border-bottom:1px solid
     <td style="text-align:right">${formatRupiah(totalHarga)}</td>
     <td style="text-align:right">${formatRupiah(totalDP)}</td>
     <td style="text-align:right;color:#fca5a5">${formatRupiah(totalSisa)}</td>
-    <td colspan="2"></td>
+    <td colspan="3"></td>
   </tr>
 </table>
 </div>
