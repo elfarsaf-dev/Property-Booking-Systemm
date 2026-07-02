@@ -216,12 +216,12 @@ export default function DashboardPage() {
       .map(([name, value]) => ({ name, value }));
   }, [filtered]);
 
-  const PIE_MAX = 8;
+  const PIE_MAX = 3;
   const pieDisplayData = useMemo(() => {
     if (pieData.length <= PIE_MAX) return pieData;
     const top = pieData.slice(0, PIE_MAX);
     const rest = pieData.slice(PIE_MAX).reduce((s, d) => s + d.value, 0);
-    return [...top, { name: `Lainnya (${pieData.length - PIE_MAX})`, value: rest }];
+    return [...top, { name: "Lainnya", value: rest }];
   }, [pieData]);
 
   /* ─────────────────────────────────────────── */
@@ -395,20 +395,6 @@ export default function DashboardPage() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 max-h-36 overflow-y-auto pr-1">
-                  {pieDisplayData.map((d, i) => (
-                    <div key={i} className="flex items-center gap-1.5 min-w-0">
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
-                      />
-                      <span className="text-slate-400 text-xs truncate" title={d.name}>
-                        {d.name.length > 16 ? d.name.slice(0, 16) + "…" : d.name}
-                      </span>
-                      <span className="text-slate-500 text-xs ml-auto shrink-0">{d.value}</span>
-                    </div>
-                  ))}
-                </div>
               </>
             )}
           </CardContent>
