@@ -3,7 +3,7 @@ import { getAdminName } from "@/services/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, Table2, LinkIcon, RefreshCw, AlertCircle } from "lucide-react";
+import { Send, Loader2, Table2, LinkIcon, RefreshCw, AlertCircle, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CHAT_BASE = "https://villa.cocspedsafliz.workers.dev";
@@ -134,6 +134,10 @@ export default function ChatPage() {
   const [inputTitle, setInputTitle] = useState("");
   const [adding, setAdding] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [zoom, setZoom] = useState(0.8);
+  const ZOOM_STEP = 0.1;
+  const ZOOM_MIN = 0.4;
+  const ZOOM_MAX = 2.0;
 
   const fetchLinks = useCallback(async () => {
     try {
@@ -375,6 +379,42 @@ export default function ChatPage() {
                   <span className="truncate">{parseMessage(selectedLink.message).url}</span>
                 </a>
               </div>
+              {/* Zoom controls */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  size="sm" variant="ghost"
+                  onClick={() => setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))}
+                  disabled={zoom <= ZOOM_MIN}
+                  className="text-slate-400 hover:text-white h-7 w-7 p-0"
+                  title="Zoom out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </Button>
+                <button
+                  onClick={() => setZoom(0.8)}
+                  className="text-slate-500 hover:text-slate-300 text-xs font-mono w-9 text-center leading-none"
+                  title="Reset zoom"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <Button
+                  size="sm" variant="ghost"
+                  onClick={() => setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))}
+                  disabled={zoom >= ZOOM_MAX}
+                  className="text-slate-400 hover:text-white h-7 w-7 p-0"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="sm" variant="ghost"
+                  onClick={() => setZoom(1)}
+                  className="text-slate-400 hover:text-white h-7 w-7 p-0"
+                  title="Reset ke 100%"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
@@ -428,40 +468,42 @@ export default function ChatPage() {
                   Tidak ada data
                 </div>
               ) : (
-                <table className="w-full text-sm border-collapse">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-900/90 backdrop-blur-sm">
-                      <th className="text-left text-slate-400 font-semibold px-4 py-2.5 border-b border-slate-700/60 text-xs w-10">
-                        #
-                      </th>
-                      {headers.map((h, i) => (
-                        <th
-                          key={i}
-                          className="text-left text-slate-300 font-semibold px-4 py-2.5 border-b border-slate-700/60 whitespace-nowrap"
-                        >
-                          {h}
+                <div style={{ zoom, transformOrigin: "top left" }}>
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-slate-900/90 backdrop-blur-sm">
+                        <th className="text-left text-slate-400 font-semibold px-3 py-2 border-b border-slate-700/60 text-xs w-8 whitespace-nowrap">
+                          #
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, ri) => (
-                      <tr
-                        key={ri}
-                        className={`border-b border-slate-700/30 hover:bg-slate-700/30 transition-colors ${
-                          ri % 2 === 0 ? "" : "bg-slate-800/30"
-                        }`}
-                      >
-                        <td className="px-4 py-2 text-slate-600 text-xs">{ri + 1}</td>
-                        {headers.map((_, ci) => (
-                          <td key={ci} className="px-4 py-2 text-slate-300 whitespace-nowrap">
-                            {row[ci] ?? ""}
-                          </td>
+                        {headers.map((h, i) => (
+                          <th
+                            key={i}
+                            className="text-left text-slate-300 font-semibold px-3 py-2 border-b border-slate-700/60 whitespace-nowrap"
+                          >
+                            {h}
+                          </th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, ri) => (
+                        <tr
+                          key={ri}
+                          className={`border-b border-slate-700/30 hover:bg-slate-700/30 transition-colors ${
+                            ri % 2 === 0 ? "" : "bg-slate-800/30"
+                          }`}
+                        >
+                          <td className="px-3 py-1.5 text-slate-600 text-xs">{ri + 1}</td>
+                          {headers.map((_, ci) => (
+                            <td key={ci} className="px-3 py-1.5 text-slate-300 whitespace-nowrap">
+                              {row[ci] ?? ""}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
