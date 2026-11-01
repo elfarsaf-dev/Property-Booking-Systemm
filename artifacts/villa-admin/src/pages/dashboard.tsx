@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { getReservations, getAdminName, isSuperAdmin, type Reservation } from "@/services/api";
-import { formatRupiah, formatDate, getStatusColor, getStatusLabel } from "@/utils/helpers";
+import { formatRupiah, formatDate, getStatusColor, getStatusLabel, getAvailableYears } from "@/utils/helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -134,15 +134,11 @@ export default function DashboardPage() {
   /* ── Base: server already filters by admin_id ── */
   const myReservations = useMemo(() => reservations, [reservations]);
 
-  /* ── Available years from unfiltered data ── */
-  const allYears = useMemo(() => {
-    const yrs = new Set(
-      myReservations
-        .map((r) => r.checkin ? new Date(r.checkin).getFullYear().toString() : null)
-        .filter(Boolean) as string[]
-    );
-    return [...yrs].sort().reverse();
-  }, [myReservations]);
+  /* ── Available years from unfiltered data (up to 2030) ── */
+  const allYears = useMemo(
+    () => getAvailableYears(myReservations.map((r) => r.checkin)),
+    [myReservations]
+  );
 
   /* ── GLOBAL FILTER — everything below uses this ── */
   const filtered = useMemo(() => {

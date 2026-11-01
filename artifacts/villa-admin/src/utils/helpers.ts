@@ -65,6 +65,20 @@ const MONTHS_ID = [
   "Juli","Agustus","September","Oktober","November","Desember",
 ];
 
+export const DEFAULT_YEARS = ["2025", "2026", "2027", "2028", "2029", "2030"];
+
+export function getAvailableYears(checkins: Array<string | null | undefined>): string[] {
+  const years = new Set<string>(DEFAULT_YEARS);
+  for (const c of checkins) {
+    if (!c) continue;
+    const yr = c.slice(0, 4);
+    if (/^\d{4}$/.test(yr)) {
+      years.add(yr);
+    }
+  }
+  return [...years].sort((a, b) => a.localeCompare(b));
+}
+
 function getMonthLabel(filterMonth: string, filterYear: string): string {
   if (filterMonth !== "all" && filterYear !== "all")
     return `${MONTHS_ID[parseInt(filterMonth) - 1]} ${filterYear}`;

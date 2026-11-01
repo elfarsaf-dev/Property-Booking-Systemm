@@ -2,18 +2,16 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { createRequire } from "module";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { VitePWA } from "vite-plugin-pwa";
 
+const require = createRequire(import.meta.url);
 const isProduction = process.env.NODE_ENV === "production";
 const rawPort = process.env.PORT;
 const basePath = process.env.BASE_PATH ?? "/";
 
-if (!isProduction && !rawPort) {
-  throw new Error("PORT environment variable is required for dev/serve mode.");
-}
-
-const port = rawPort ? Number(rawPort) : 5173;
+const port = rawPort ? Number(rawPort) : 3000;
 
 export default defineConfig({
   base: basePath,
@@ -80,7 +78,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
-      "exceljs": path.resolve(import.meta.dirname, "../../node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/dist/exceljs.min.js"),
+      "exceljs": require.resolve("exceljs/dist/exceljs.min.js"),
     },
     dedupe: ["react", "react-dom"],
   },

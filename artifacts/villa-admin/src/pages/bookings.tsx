@@ -7,7 +7,7 @@ import {
   isSuperAdmin,
   type Reservation,
 } from "@/services/api";
-import { formatRupiah, formatDate, getStatusColor, getStatusLabel, exportToXLSX, exportToPDF } from "@/utils/helpers";
+import { formatRupiah, formatDate, getStatusColor, getStatusLabel, getAvailableYears, exportToXLSX, exportToPDF } from "@/utils/helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -143,10 +143,10 @@ export default function BookingsPage() {
 
   useEffect(() => { load({ autoLunas: true }); }, []);
 
-  const years = useMemo(() => {
-    const s = new Set(reservations.map((r) => r.checkin?.slice(0, 4)).filter(Boolean));
-    return [...s].sort((a, b) => b.localeCompare(a));
-  }, [reservations]);
+  const years = useMemo(
+    () => getAvailableYears(reservations.map((r) => r.checkin)),
+    [reservations]
+  );
 
   const adminNames = useMemo(() => {
     const s = new Set(reservations.map((r) => r.admin_name).filter(Boolean) as string[]);
