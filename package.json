@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=@workspace/villa-admin",
     "build": "npm run build --workspace=@workspace/villa-admin",
+    "build:cf": "npm run build:cf --workspace=@workspace/villa-admin",
     "lint": "npm run typecheck --workspace=@workspace/villa-admin",
     "typecheck": "npm run typecheck --workspace=@workspace/villa-admin"
   },
